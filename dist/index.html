@@ -732,11 +732,11 @@
 
   // ============ App 类别系统（大分类 + 小分类） ============
   const CATEGORY_TREE = {
-    '商务办公': ['在线会议', '商务沟通', '项目管理', '文档协作', '企业管理', '办公工具', '其他'],
+    '商务办公': ['在线会议', '商务沟通', '项目管理', '文档协作', '企业管理', '办公工具', '求职招聘', '其他'],
     '社交聊天': ['即时通讯', '社区论坛', '婚恋交友', '兴趣社交', '其他'],
     '娱乐': ['OTT', '短视频', '直播', '音乐与音频', '播客', '其他'],
     '购物': ['综合电商', '二手交易', '特卖折扣', '跨境电商', '其他'],
-    '生活服务': ['外卖配送', '本地生活', '快递物流', '女性健康', '拍照工具', '二手交易', '其他'],
+    '生活服务': ['外卖配送', '本地生活', '快递物流', '女性健康', '拍照工具', '二手交易', '家用电器', '通信运营', '便利店', '其他'],
     '金融理财': ['银行', '支付', '投资理财', '保险', '借贷', '其他'],
     '出行导航': ['地图导航', '打车出行', '共享单车', '货运', '其他'],
     '旅游出行': ['综合旅游服务', '酒店住宿', '机票火车', '旅行攻略', '其他'],
@@ -744,7 +744,7 @@
     '游戏': ['射击', '团队竞技', 'MOBA', 'RPG', '休闲益智', '棋牌', '其他'],
     '新闻资讯': ['综合新闻', '财经资讯', '科技资讯', '体育资讯', '其他'],
     '照片视频': ['照片编辑', '视频编辑', '相机工具', '美颜滤镜', '其他'],
-    '健身健康': ['运动健身', '医疗健康', '女性健康', '心理健康', '其他'],
+    '健身健康': ['运动健身', '医疗健康', '女性健康', '心理健康', '在线医疗', '其他'],
     '阅读文学': ['小说阅读', '电子书', '有声书', '漫画', '其他'],
     '房产家居': ['租房买房', '家装设计', '智能家居', '其他'],
     'AI 人工智能': ['AI助手', 'AI创作', 'AI工具', '其他'],
@@ -858,6 +858,52 @@
     '转转': { major: '购物', minor: '二手交易' },
     '今日水印': { major: '照片视频', minor: '照片编辑' },
     '今日水印相机': { major: '照片视频', minor: '照片编辑' },
+    '猎聘': { major: '商务办公', minor: '求职招聘' },
+    '麦德龙': { major: '购物', minor: '综合电商' },
+    '海信爱家': { major: '生活服务', minor: '家用电器' },
+    '好大夫在线': { major: '健身健康', minor: '在线医疗' },
+    '好大夫': { major: '健身健康', minor: '在线医疗' },
+    '婚礼纪': { major: '生活服务', minor: '其他' },
+    'T-FAMI': { major: '生活服务', minor: '便利店' },
+    'BOSS直聘': { major: '商务办公', minor: '求职招聘' },
+    '智联招聘': { major: '商务办公', minor: '求职招聘' },
+    '前程无忧': { major: '商务办公', minor: '求职招聘' },
+    '58同城': { major: '生活服务', minor: '本地生活' },
+    '赶集网': { major: '生活服务', minor: '本地生活' },
+    '万能钥匙': { major: '工具效率', minor: '系统工具' },
+    '墨迹天气': { major: '工具效率', minor: '系统工具' },
+    '中国移动': { major: '生活服务', minor: '通信运营' },
+    '中国联通': { major: '生活服务', minor: '通信运营' },
+    '中国电信': { major: '生活服务', minor: '通信运营' },
+    '12306': { major: '旅游出行', minor: '机票火车' },
+    '铁路12306': { major: '旅游出行', minor: '机票火车' },
+    '滴滴': { major: '出行导航', minor: '打车出行' },
+    '曹操出行': { major: '出行导航', minor: '打车出行' },
+    '花小猪': { major: '出行导航', minor: '打车出行' },
+    '顺丰': { major: '生活服务', minor: '快递物流' },
+    '菜鸟': { major: '生活服务', minor: '快递物流' },
+    '极兔': { major: '生活服务', minor: '快递物流' },
+    '中通': { major: '生活服务', minor: '快递物流' },
+    '韵达': { major: '生活服务', minor: '快递物流' },
+    '圆通': { major: '生活服务', minor: '快递物流' },
+    '申通': { major: '生活服务', minor: '快递物流' },
+    '饿了么': { major: '生活服务', minor: '外卖配送' },
+    '瑞幸咖啡': { major: '美食餐饮', minor: '餐厅推荐' },
+    '星巴克': { major: '美食餐饮', minor: '餐厅推荐' },
+    '肯德基': { major: '美食餐饮', minor: '餐厅推荐' },
+    '麦当劳': { major: '美食餐饮', minor: '餐厅推荐' },
+    '必胜客': { major: '美食餐饮', minor: '餐厅推荐' },
+    '盒马鲜生': { major: '生活服务', minor: '外卖配送' },
+    '每日优鲜': { major: '生活服务', minor: '外卖配送' },
+    '山姆': { major: '购物', minor: '综合电商' },
+    '永辉': { major: '购物', minor: '综合电商' },
+    '苏宁': { major: '购物', minor: '综合电商' },
+    '国美': { major: '购物', minor: '综合电商' },
+    '当当': { major: '购物', minor: '综合电商' },
+    '网易严选': { major: '购物', minor: '综合电商' },
+    '考拉海购': { major: '购物', minor: '跨境电商' },
+    '洋码头': { major: '购物', minor: '跨境电商' },
+    '天猫国际': { major: '购物', minor: '跨境电商' },
   };
 
   function matchCategory(name) {
@@ -1412,19 +1458,23 @@
     updateGenerateBar();
 
     // ===== OCR识别App名称 =====
-    // 策略：取Logo右侧一小块区域（只要App名称，不要描述/类别等）
-    // App名称通常紧挨Logo右侧，字号较大，位于上半部分
-    
     const logoNatW = rect.w * scaleX;
     const logoNatH = rect.h * scaleY;
     const logoNatX = rect.x * scaleX;
     const logoNatY = rect.y * scaleY;
     
-    // 名称区域：Logo右侧整行区域（和最初一样）
+    // 名称区域：Logo右侧
     const nameX = logoNatX + logoNatW + 5;
     const nameY = logoNatY;
     const nameW = Math.min(logoNatW * 4, cropImage.naturalWidth - nameX);
     const nameH = logoNatH;
+
+    // 分类区域：截图最右侧（图中通常右侧有 "大分类 > 小分类" 标签）
+    const catRegionW = Math.floor(cropImage.naturalWidth * 0.35);
+    const catX = cropImage.naturalWidth - catRegionW;
+    const catY = logoNatY;
+    const catW = catRegionW;
+    const catH = logoNatH;
 
     function cleanOcrText(raw) {
       if (!raw) return '';
@@ -1441,17 +1491,13 @@
       return cleaned.trim();
     }
 
-    // OCR纠错：用编辑距离匹配已知App名称
     function correctOcrName(ocrName) {
       if (!ocrName || ocrName.length < 2) return ocrName;
       const knownNames = Object.keys(APP_NAME_CATEGORY_MAP);
-      // 先精确匹配
       if (knownNames.includes(ocrName)) return ocrName;
-      // 检查是否已知名称被包含在OCR结果中
       for (const known of knownNames) {
         if (ocrName.includes(known)) return known;
       }
-      // 编辑距离纠错（仅对较短名称有效）
       let bestMatch = ocrName;
       let bestDist = Infinity;
       for (const known of knownNames) {
@@ -1479,8 +1525,39 @@
       return dp[m][n];
     }
 
+    // 从OCR文本中提取 "大分类 > 小分类" 格式
+    function extractCategoryFromOcr(text) {
+      if (!text) return null;
+      const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+      for (const line of lines) {
+        // 匹配 "大分类 > 小分类" 或 "大分类 》小分类" 或 "大分类>小分类"
+        const match = line.match(/([\u4e00-\u9fa5A-Za-z]+)\s*[>》➤▸►→]\s*([\u4e00-\u9fa5A-Za-z]+)/);
+        if (match) {
+          return { major: match[1].trim(), minor: match[2].trim() };
+        }
+      }
+      // 如果只找到两个中文短词（可能 ">" 没被识别），尝试从所有行中提取
+      const chineseWords = [];
+      for (const line of lines) {
+        const words = line.replace(/[^a-zA-Z\u4e00-\u9fa5\s]/g, '').trim();
+        if (words.length >= 2 && words.length <= 10) {
+          chineseWords.push(words);
+        }
+      }
+      if (chineseWords.length >= 2) {
+        return { major: chineseWords[0], minor: chineseWords[1] };
+      }
+      if (chineseWords.length === 1) {
+        return { major: chineseWords[0], minor: '' };
+      }
+      return null;
+    }
+
+    // 并行OCR：名称 + 分类
+    const ocrPromises = [];
+
+    // OCR 1: 识别App名称
     if (nameW > 10 && nameH > 5) {
-      // 直接裁剪原图区域，不做任何预处理，只放大2倍
       const enlargeScale = 2;
       const nameCanvas = document.createElement('canvas');
       nameCanvas.width = Math.round(nameW * enlargeScale);
@@ -1489,59 +1566,84 @@
       nameCtx.imageSmoothingEnabled = true;
       nameCtx.imageSmoothingQuality = 'high';
       nameCtx.drawImage(cropImage, nameX, nameY, nameW, nameH, 0, 0, nameCanvas.width, nameCanvas.height);
-
-      // 不做任何二值化或对比度处理，让Tesseract用原图
-
       const nameSrc = nameCanvas.toDataURL('image/png');
 
-      Tesseract.recognize(nameSrc, 'chi_sim+eng', {
-        logger: () => {}
-      }).then(({ data: { text } }) => {
-        // 取第一行有意义的文字作为App名称
-        const lines = text.trim().split('\n').map(l => l.trim()).filter(l => l);
-        
+      ocrPromises.push(
+        Tesseract.recognize(nameSrc, 'chi_sim+eng', { logger: () => {} })
+          .then(({ data: { text } }) => {
+            const lines = text.trim().split('\n').map(l => l.trim()).filter(l => l);
+            let name = '';
+            if (lines.length > 0) {
+              let firstLine = cleanOcrText(lines[0]);
+              if (firstLine.length <= 1 && lines.length > 1) {
+                firstLine = cleanOcrText(lines[0] + lines[1]);
+              }
+              name = firstLine;
+            }
+            if (name.length > 8) {
+              const parts = name.split(/\s+/);
+              name = parts[0];
+            }
+            if (name.length > 6) {
+              name = name.substring(0, 6);
+            }
+            name = correctOcrName(name);
+            return { type: 'name', value: name };
+          })
+          .catch(() => ({ type: 'name', value: '' }))
+      );
+    }
+
+    // OCR 2: 识别右侧分类标签
+    if (catW > 10 && catH > 5) {
+      const enlargeScale = 2;
+      const catCanvas = document.createElement('canvas');
+      catCanvas.width = Math.round(catW * enlargeScale);
+      catCanvas.height = Math.round(catH * enlargeScale);
+      const catCtx = catCanvas.getContext('2d');
+      catCtx.imageSmoothingEnabled = true;
+      catCtx.imageSmoothingQuality = 'high';
+      catCtx.drawImage(cropImage, catX, catY, catW, catH, 0, 0, catCanvas.width, catCanvas.height);
+      const catSrc = catCanvas.toDataURL('image/png');
+
+      ocrPromises.push(
+        Tesseract.recognize(catSrc, 'chi_sim+eng', { logger: () => {} })
+          .then(({ data: { text } }) => {
+            const cat = extractCategoryFromOcr(text);
+            return { type: 'category', value: cat };
+          })
+          .catch(() => ({ type: 'category', value: null }))
+      );
+    }
+
+    if (ocrPromises.length > 0) {
+      Promise.all(ocrPromises).then(results => {
+        if (index >= cropItems.length) return;
+
         let name = '';
-        if (lines.length > 0) {
-          // 第一行就是App名称（可能带...省略号）
-          let firstLine = cleanOcrText(lines[0]);
-          // 如果第一行太短（1个字），尝试和第二行合并
-          if (firstLine.length <= 1 && lines.length > 1) {
-            firstLine = cleanOcrText(lines[0] + lines[1]);
-          }
-          name = firstLine;
-        }
-        
-        // 截断：App名称一般不超过6个中文字
-        if (name.length > 8) {
-          // 先按空格分割取第一部分
-          const parts = name.split(/\s+/);
-          name = parts[0];
-        }
-        if (name.length > 6) {
-          name = name.substring(0, 6);
-        }
+        let ocrCat = null;
 
-        // OCR纠错
-        name = correctOcrName(name);
+        results.forEach(r => {
+          if (r.type === 'name') name = r.value;
+          if (r.type === 'category') ocrCat = r.value;
+        });
 
-        if (index < cropItems.length) {
-          cropItems[index].name = name || '未命名Logo';
+        cropItems[index].name = name || '未命名Logo';
+
+        // 优先使用OCR识别到的分类，其次用名称映射
+        if (ocrCat && ocrCat.major) {
+          cropItems[index].category = ocrCat.major;
+          cropItems[index].subcategory = ocrCat.minor || '';
+        } else {
           const matched = matchCategory(cropItems[index].name);
           if (matched.major) {
             cropItems[index].category = matched.major;
             cropItems[index].subcategory = matched.minor;
           }
-          cropItems[index].ocrDone = true;
-          renderCropList();
         }
-      }).catch(() => {
-        if (index < cropItems.length) {
-          cropItems[index].name = '未命名Logo';
-          cropItems[index].category = '';
-          cropItems[index].subcategory = '';
-          cropItems[index].ocrDone = true;
-          renderCropList();
-        }
+
+        cropItems[index].ocrDone = true;
+        renderCropList();
       });
     } else {
       cropItems[index].name = '未命名Logo';
