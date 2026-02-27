@@ -736,7 +736,7 @@
     '社交聊天': ['即时通讯', '社区论坛', '婚恋交友', '兴趣社交', '其他'],
     '娱乐': ['OTT', '短视频', '直播', '音乐与音频', '播客', '其他'],
     '购物': ['综合电商', '二手交易', '特卖折扣', '跨境电商', '其他'],
-    '生活服务': ['外卖配送', '本地生活', '快递物流', '女性健康', '拍照工具', '二手交易', '家用电器', '通信运营', '便利店', '其他'],
+    '生活服务': ['外卖配送', '本地生活', '快递物流', '女性健康', '拍照工具', '二手交易', '家用电器', '通信运营', '便利店', '婚庆服务', '其他'],
     '金融理财': ['银行', '支付', '投资理财', '保险', '借贷', '其他'],
     '出行导航': ['地图导航', '打车出行', '共享单车', '货运', '其他'],
     '旅游出行': ['综合旅游服务', '酒店住宿', '机票火车', '旅行攻略', '其他'],
@@ -796,22 +796,35 @@
     '招商银行': { major: '金融理财', minor: '银行' },
     '工商银行': { major: '金融理财', minor: '银行' },
     '建设银行': { major: '金融理财', minor: '银行' },
+    '农业银行': { major: '金融理财', minor: '银行' },
+    '中国银行': { major: '金融理财', minor: '银行' },
+    '交通银行': { major: '金融理财', minor: '银行' },
+    '民生银行': { major: '金融理财', minor: '银行' },
+    '浦发银行': { major: '金融理财', minor: '银行' },
+    '兴业银行': { major: '金融理财', minor: '银行' },
+    '光大银行': { major: '金融理财', minor: '银行' },
+    '中信银行': { major: '金融理财', minor: '银行' },
+    '华夏银行': { major: '金融理财', minor: '银行' },
+    '平安银行': { major: '金融理财', minor: '银行' },
     '买单吧': { major: '金融理财', minor: '支付' },
     '新浪财经': { major: '新闻资讯', minor: '财经资讯' },
     '百度地图': { major: '出行导航', minor: '地图导航' },
     '高德地图': { major: '出行导航', minor: '地图导航' },
+    '腾讯地图': { major: '出行导航', minor: '地图导航' },
     '滴滴出行': { major: '出行导航', minor: '打车出行' },
     '小拉出行': { major: '出行导航', minor: '打车出行' },
     '哈啰': { major: '出行导航', minor: '共享单车' },
     'T3出行': { major: '出行导航', minor: '打车出行' },
     '自如': { major: '房产家居', minor: '租房买房' },
     '贝壳找房': { major: '房产家居', minor: '租房买房' },
+    '贝壳': { major: '房产家居', minor: '租房买房' },
     '链家': { major: '房产家居', minor: '租房买房' },
     '安居客': { major: '房产家居', minor: '租房买房' },
     '知乎': { major: '新闻资讯', minor: '综合新闻' },
     '今日头条': { major: '新闻资讯', minor: '综合新闻' },
     '网易新闻': { major: '新闻资讯', minor: '综合新闻' },
     '腾讯新闻': { major: '新闻资讯', minor: '综合新闻' },
+    '澎湃新闻': { major: '新闻资讯', minor: '综合新闻' },
     '网易云音乐': { major: '娱乐', minor: '音乐与音频' },
     'QQ音乐': { major: '娱乐', minor: '音乐与音频' },
     '酷狗音乐': { major: '娱乐', minor: '音乐与音频' },
@@ -825,6 +838,8 @@
     '文心一言': { major: 'AI 人工智能', minor: 'AI助手' },
     'ChatGPT': { major: 'AI 人工智能', minor: 'AI助手' },
     'Kimi': { major: 'AI 人工智能', minor: 'AI助手' },
+    'DeepSeek': { major: 'AI 人工智能', minor: 'AI助手' },
+    '通义千问': { major: 'AI 人工智能', minor: 'AI助手' },
     '之了课堂': { major: '教育学习', minor: '职业培训' },
     '学而思': { major: '教育学习', minor: 'K12教育' },
     '作业帮': { major: '教育学习', minor: 'K12教育' },
@@ -835,6 +850,7 @@
     '美图秀秀': { major: '照片视频', minor: '美颜滤镜' },
     '醒图': { major: '照片视频', minor: '照片编辑' },
     '携程': { major: '旅游出行', minor: '综合旅游服务' },
+    '携程旅行': { major: '旅游出行', minor: '综合旅游服务' },
     '飞猪': { major: '旅游出行', minor: '综合旅游服务' },
     '去哪儿': { major: '旅游出行', minor: '综合旅游服务' },
     '同程旅行': { major: '旅游出行', minor: '综合旅游服务' },
@@ -863,11 +879,21 @@
     '海信爱家': { major: '生活服务', minor: '家用电器' },
     '好大夫在线': { major: '健身健康', minor: '在线医疗' },
     '好大夫': { major: '健身健康', minor: '在线医疗' },
-    '婚礼纪': { major: '生活服务', minor: '其他' },
+    '婚礼纪': { major: '生活服务', minor: '婚庆服务' },
+    '全家': { major: '生活服务', minor: '便利店' },
+    '全家便利店': { major: '生活服务', minor: '便利店' },
+    'FamilyMart': { major: '生活服务', minor: '便利店' },
     'T-FAMI': { major: '生活服务', minor: '便利店' },
+    'TFAMI': { major: '生活服务', minor: '便利店' },
+    '罗森': { major: '生活服务', minor: '便利店' },
+    '7-Eleven': { major: '生活服务', minor: '便利店' },
+    '711': { major: '生活服务', minor: '便利店' },
+    '便利蜂': { major: '生活服务', minor: '便利店' },
     'BOSS直聘': { major: '商务办公', minor: '求职招聘' },
     '智联招聘': { major: '商务办公', minor: '求职招聘' },
     '前程无忧': { major: '商务办公', minor: '求职招聘' },
+    '拉勾': { major: '商务办公', minor: '求职招聘' },
+    '脉脉': { major: '商务办公', minor: '商务沟通' },
     '58同城': { major: '生活服务', minor: '本地生活' },
     '赶集网': { major: '生活服务', minor: '本地生活' },
     '万能钥匙': { major: '工具效率', minor: '系统工具' },
@@ -881,29 +907,183 @@
     '曹操出行': { major: '出行导航', minor: '打车出行' },
     '花小猪': { major: '出行导航', minor: '打车出行' },
     '顺丰': { major: '生活服务', minor: '快递物流' },
+    '顺丰速运': { major: '生活服务', minor: '快递物流' },
     '菜鸟': { major: '生活服务', minor: '快递物流' },
+    '菜鸟裹裹': { major: '生活服务', minor: '快递物流' },
     '极兔': { major: '生活服务', minor: '快递物流' },
+    '极兔快递': { major: '生活服务', minor: '快递物流' },
     '中通': { major: '生活服务', minor: '快递物流' },
+    '中通快递': { major: '生活服务', minor: '快递物流' },
     '韵达': { major: '生活服务', minor: '快递物流' },
     '圆通': { major: '生活服务', minor: '快递物流' },
     '申通': { major: '生活服务', minor: '快递物流' },
-    '饿了么': { major: '生活服务', minor: '外卖配送' },
     '瑞幸咖啡': { major: '美食餐饮', minor: '餐厅推荐' },
+    '瑞幸': { major: '美食餐饮', minor: '餐厅推荐' },
     '星巴克': { major: '美食餐饮', minor: '餐厅推荐' },
     '肯德基': { major: '美食餐饮', minor: '餐厅推荐' },
+    'KFC': { major: '美食餐饮', minor: '餐厅推荐' },
     '麦当劳': { major: '美食餐饮', minor: '餐厅推荐' },
     '必胜客': { major: '美食餐饮', minor: '餐厅推荐' },
     '盒马鲜生': { major: '生活服务', minor: '外卖配送' },
     '每日优鲜': { major: '生活服务', minor: '外卖配送' },
     '山姆': { major: '购物', minor: '综合电商' },
+    '山姆会员店': { major: '购物', minor: '综合电商' },
     '永辉': { major: '购物', minor: '综合电商' },
+    '永辉超市': { major: '购物', minor: '综合电商' },
     '苏宁': { major: '购物', minor: '综合电商' },
+    '苏宁易购': { major: '购物', minor: '综合电商' },
     '国美': { major: '购物', minor: '综合电商' },
     '当当': { major: '购物', minor: '综合电商' },
     '网易严选': { major: '购物', minor: '综合电商' },
     '考拉海购': { major: '购物', minor: '跨境电商' },
     '洋码头': { major: '购物', minor: '跨境电商' },
     '天猫国际': { major: '购物', minor: '跨境电商' },
+    '马上到家': { major: '生活服务', minor: '外卖配送' },
+    '多点': { major: '购物', minor: '综合电商' },
+    '多点超市': { major: '购物', minor: '综合电商' },
+    '物美': { major: '购物', minor: '综合电商' },
+    '年货节': { major: '购物', minor: '综合电商' },
+    '万达': { major: '生活服务', minor: '本地生活' },
+    '万达广场': { major: '生活服务', minor: '本地生活' },
+    '万达电影': { major: '娱乐', minor: '其他' },
+    '淘票票': { major: '娱乐', minor: '其他' },
+    '猫眼': { major: '娱乐', minor: '其他' },
+    '猫眼电影': { major: '娱乐', minor: '其他' },
+    '微医': { major: '健身健康', minor: '在线医疗' },
+    '春雨医生': { major: '健身健康', minor: '在线医疗' },
+    '薄荷健康': { major: '健身健康', minor: '运动健身' },
+    '咕咚': { major: '健身健康', minor: '运动健身' },
+    '华为运动健康': { major: '健身健康', minor: '运动健身' },
+    '小米运动': { major: '健身健康', minor: '运动健身' },
+    '懂车帝': { major: '汽车服务', minor: '买车卖车' },
+    '汽车之家': { major: '汽车服务', minor: '买车卖车' },
+    '途虎养车': { major: '汽车服务', minor: '车主服务' },
+    '特来电': { major: '汽车服务', minor: '充电加油' },
+    '探探': { major: '社交聊天', minor: '婚恋交友' },
+    '陌陌': { major: '社交聊天', minor: '婚恋交友' },
+    '珍爱网': { major: '社交聊天', minor: '婚恋交友' },
+    '世纪佳缘': { major: '社交聊天', minor: '婚恋交友' },
+    'Soul': { major: '社交聊天', minor: '兴趣社交' },
+    '豆瓣': { major: '社交聊天', minor: '社区论坛' },
+    '虎扑': { major: '新闻资讯', minor: '体育资讯' },
+    '36氪': { major: '新闻资讯', minor: '科技资讯' },
+    '雪球': { major: '新闻资讯', minor: '财经资讯' },
+    '东方财富': { major: '金融理财', minor: '投资理财' },
+    '同花顺': { major: '金融理财', minor: '投资理财' },
+    '蚂蚁财富': { major: '金融理财', minor: '投资理财' },
+    '京东金融': { major: '金融理财', minor: '投资理财' },
+    '度小满': { major: '金融理财', minor: '借贷' },
+    '借呗': { major: '金融理财', minor: '借贷' },
+    '微粒贷': { major: '金融理财', minor: '借贷' },
+    '宜家': { major: '房产家居', minor: '家装设计' },
+    '土巴兔': { major: '房产家居', minor: '家装设计' },
+    '齐家网': { major: '房产家居', minor: '家装设计' },
+    '美团外卖': { major: '生活服务', minor: '外卖配送' },
+    '饿了么外卖': { major: '生活服务', minor: '外卖配送' },
+    '美团优选': { major: '生活服务', minor: '外卖配送' },
+    '多多买菜': { major: '生活服务', minor: '外卖配送' },
+    '淘鲜达': { major: '生活服务', minor: '外卖配送' },
+    '百果园': { major: '美食餐饮', minor: '食品生鲜' },
+    '叮咚': { major: '生活服务', minor: '外卖配送' },
+    '每日优鲜': { major: '生活服务', minor: '外卖配送' },
+    '沃尔玛': { major: '购物', minor: '综合电商' },
+    '奥乐齐': { major: '购物', minor: '综合电商' },
+    'ALDI': { major: '购物', minor: '综合电商' },
+    'Costco': { major: '购物', minor: '综合电商' },
+    '鱼泡直聘': { major: '商务办公', minor: '求职招聘' },
+    '鱼泡': { major: '商务办公', minor: '求职招聘' },
+    '233乐园': { major: '游戏', minor: '休闲益智' },
+    '粉笔': { major: '教育学习', minor: '职业培训' },
+    '粉笔教育': { major: '教育学习', minor: '职业培训' },
+    '智学网': { major: '教育学习', minor: 'K12教育' },
+    '滑呗': { major: '健身健康', minor: '运动健身' },
+    '比亚迪': { major: '汽车服务', minor: '买车卖车' },
+    'BYD': { major: '汽车服务', minor: '买车卖车' },
+    '英雄联盟': { major: '游戏', minor: 'MOBA' },
+    '英雄联盟手游': { major: '游戏', minor: 'MOBA' },
+    'LOL': { major: '游戏', minor: 'MOBA' },
+    '蛋仔派对': { major: '游戏', minor: '休闲益智' },
+    '地铁跑酷': { major: '游戏', minor: '休闲益智' },
+    '开心消消乐': { major: '游戏', minor: '休闲益智' },
+    '欢乐斗地主': { major: '游戏', minor: '棋牌' },
+    '天天象棋': { major: '游戏', minor: '棋牌' },
+    '光遇': { major: '游戏', minor: 'RPG' },
+    '元梦之星': { major: '游戏', minor: '休闲益智' },
+    '第五人格': { major: '游戏', minor: '团队竞技' },
+    '金铲铲之战': { major: '游戏', minor: '团队竞技' },
+    '三国杀': { major: '游戏', minor: '棋牌' },
+    '梦幻西游': { major: '游戏', minor: 'RPG' },
+    '阴阳师': { major: '游戏', minor: 'RPG' },
+    '暗区突围': { major: '游戏', minor: '射击' },
+    '穿越火线': { major: '游戏', minor: '射击' },
+    'CF': { major: '游戏', minor: '射击' },
+    '刺激战场': { major: '游戏', minor: '射击' },
+    '绝地求生': { major: '游戏', minor: '射击' },
+    'PUBG': { major: '游戏', minor: '射击' },
+    '使命召唤': { major: '游戏', minor: '射击' },
+    '明日方舟': { major: '游戏', minor: 'RPG' },
+    '逆水寒': { major: '游戏', minor: 'RPG' },
+    '荣耀': { major: '游戏', minor: 'MOBA' },
+    '摩天轮': { major: '娱乐', minor: 'OTT' },
+    '摩天轮票务': { major: '娱乐', minor: 'OTT' },
+    '逆战': { major: '游戏', minor: '射击' },
+    '逆战助手': { major: '游戏', minor: '射击' },
+    '手机公积金': { major: '金融理财', minor: '其他' },
+    'ima': { major: 'AI 人工智能', minor: 'AI助手' },
+    'CAD看图': { major: '商务办公', minor: '办公工具' },
+    '撕歌': { major: '娱乐', minor: '音乐与音频' },
+    '扇贝单词': { major: '教育学习', minor: '语言学习' },
+    '扇贝': { major: '教育学习', minor: '语言学习' },
+  };
+
+  // OCR常见误读别名 → 正确名称
+  const OCR_ALIAS_MAP = {
+    'DEBR-L': '马上到家',
+    'DEBRL': '马上到家',
+    'T-FAMI': '全家',
+    'TFAMI': '全家',
+    'T-FAM': '全家',
+    'TFAM': '全家',
+    'FAMILYMART': '全家',
+    'FamilyMart': '全家',
+    'Family': '全家',
+    '全家便利': '全家',
+    'BOsS直聘': 'BOSS直聘',
+    'Boss直聘': 'BOSS直聘',
+    'boss直聘': 'BOSS直聘',
+    '链 家': '链家',
+    '猪 聘': '猎聘',
+    '猎 聘': '猎聘',
+    '好大夫': '好大夫在线',
+    '好大': '好大夫在线',
+    '海信爱': '海信爱家',
+    '婚礼': '婚礼纪',
+    '招商银': '招商银行',
+    '招商': '招商银行',
+    '麦德': '麦德龙',
+    '马上到': '马上到家',
+    '年货': '年货节',
+    '鱼泡': '鱼泡直聘',
+    '鱼泡直聘': '鱼泡直聘',
+    '233乐园': '233乐园',
+    '233': '233乐园',
+    '智学网': '智学网',
+    '智学': '智学网',
+    '粉笔': '粉笔',
+    '滑呗': '滑呗',
+    '滑 呗': '滑呗',
+    '比亚迪': '比亚迪',
+    'BYD': '比亚迪',
+    'BmMm': '比亚迪',
+    '逆战助': '逆战助手',
+    '摩天': '摩天轮',
+    '手机公积': '手机公积金',
+    '公积金': '手机公积金',
+    'CAD': 'CAD看图',
+    '扇贝单': '扇贝单词',
+    '扇 贝': '扇贝',
+    '华夏银': '华夏银行',
+    '华夏': '华夏银行',
   };
 
   function matchCategory(name) {
@@ -1357,8 +1537,17 @@
         w: logo.w * scaleX,
         h: logo.h * scaleY
       };
+      // 找到该Logo所在的band，传递整行信息用于分类区域裁剪
+      const logoCY = logo.y + logo.h / 2;
+      let matchedBand = null;
+      for (const band of bands) {
+        if (logoCY >= band.top && logoCY <= band.bottom) {
+          matchedBand = band;
+          break;
+        }
+      }
       setTimeout(() => {
-        extractCropRegion(displayRect);
+        extractCropRegion(displayRect, matchedBand);
         processed++;
         if (processed === finalLogos.length) {
           status.textContent = `完成！共识别 ${finalLogos.length} 个 Logo`;
@@ -1435,7 +1624,7 @@
     return out;
   }
 
-  function extractCropRegion(rect) {
+  function extractCropRegion(rect, bandInfo) {
     const scaleX = cropImage.naturalWidth / cropImage.clientWidth;
     const scaleY = cropImage.naturalHeight / cropImage.clientHeight;
 
@@ -1463,18 +1652,32 @@
     const logoNatX = rect.x * scaleX;
     const logoNatY = rect.y * scaleY;
     
-    // 名称区域：Logo右侧
+    // 名称区域：Logo右侧，宽度取 Logo宽度×3 或到图片45%处（取较大值确保不为负）
     const nameX = logoNatX + logoNatW + 5;
-    const nameY = logoNatY;
-    const nameW = Math.min(logoNatW * 4, cropImage.naturalWidth - nameX);
-    const nameH = logoNatH;
+    const nameY = bandInfo ? bandInfo.top : logoNatY;
+    const nameRightLimit = Math.max(cropImage.naturalWidth * 0.45, logoNatX + logoNatW + logoNatW * 2);
+    const nameW = Math.max(logoNatW * 1.5, Math.min(logoNatW * 4, nameRightLimit - nameX));
+    const nameH = bandInfo ? (bandInfo.bottom - bandInfo.top) : logoNatH;
 
-    // 分类区域：截图最右侧（图中通常右侧有 "大分类 > 小分类" 标签）
-    const catRegionW = Math.floor(cropImage.naturalWidth * 0.35);
-    const catX = cropImage.naturalWidth - catRegionW;
-    const catY = logoNatY;
-    const catW = catRegionW;
-    const catH = logoNatH;
+    // 分类区域：使用band信息（整行）来精确确定分类标签位置
+    // 分类标签通常在整行的右侧50%区域（从图片中间到右边）
+    let catX, catY, catW, catH;
+    if (bandInfo) {
+      // 有band信息：使用整行的右半部分作为分类区域
+      const bandMidX = Math.floor(cropImage.naturalWidth * 0.45); // 从45%处开始
+      catX = bandMidX;
+      catY = bandInfo.top;
+      catW = cropImage.naturalWidth - bandMidX;
+      catH = bandInfo.bottom - bandInfo.top;
+    } else {
+      // 无band信息：fallback到基于Logo位置的估算
+      const catRegionW = Math.floor(cropImage.naturalWidth * 0.50);
+      catX = cropImage.naturalWidth - catRegionW;
+      const catPadY = Math.floor(logoNatH * 0.25);
+      catY = Math.max(0, logoNatY - catPadY);
+      catW = catRegionW;
+      catH = Math.min(logoNatH + catPadY * 2, cropImage.naturalHeight - catY);
+    }
 
     function cleanOcrText(raw) {
       if (!raw) return '';
@@ -1492,18 +1695,38 @@
     }
 
     function correctOcrName(ocrName) {
-      if (!ocrName || ocrName.length < 2) return ocrName;
+      if (!ocrName || ocrName.length < 1) return ocrName;
+
+      // 0. 直接匹配别名映射表（优先级最高）
+      if (OCR_ALIAS_MAP[ocrName]) return OCR_ALIAS_MAP[ocrName];
+      // 大小写不敏感匹配别名
+      const upperName = ocrName.toUpperCase();
+      for (const [alias, correct] of Object.entries(OCR_ALIAS_MAP)) {
+        if (alias.toUpperCase() === upperName) return correct;
+      }
+      // 别名包含检查（要求至少3个字符才做包含匹配，避免短字符串误匹配）
+      for (const [alias, correct] of Object.entries(OCR_ALIAS_MAP)) {
+        if (ocrName.length >= 2 && ocrName.includes(alias) && alias.length >= 2) return correct;
+        if (alias.length >= 3 && alias.includes(ocrName) && ocrName.length >= 2) return correct;
+      }
+
+      // 1. 精确匹配已知名称
       const knownNames = Object.keys(APP_NAME_CATEGORY_MAP);
       if (knownNames.includes(ocrName)) return ocrName;
+
+      // 2. 包含关系匹配
       for (const known of knownNames) {
         if (ocrName.includes(known)) return known;
+        if (known.includes(ocrName) && ocrName.length >= 2) return known;
       }
+
+      // 3. 编辑距离纠错（收紧阈值，避免误匹配）
       let bestMatch = ocrName;
       let bestDist = Infinity;
       for (const known of knownNames) {
         if (Math.abs(known.length - ocrName.length) > 2) continue;
         const dist = editDistance(ocrName, known);
-        const threshold = known.length <= 3 ? 1 : 2;
+        const threshold = known.length <= 2 ? 0 : (known.length <= 4 ? 1 : 2);
         if (dist <= threshold && dist < bestDist) {
           bestDist = dist;
           bestMatch = known;
@@ -1528,92 +1751,362 @@
     // 从OCR文本中提取 "大分类 > 小分类" 格式
     function extractCategoryFromOcr(text) {
       if (!text) return null;
-      const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+      // 预处理：合并中文字符间的空格（OCR常见问题）
+      let preprocessed = text.replace(/([\u4e00-\u9fa5])\s+([\u4e00-\u9fa5])/g, '$1$2');
+      preprocessed = preprocessed.replace(/([\u4e00-\u9fa5])\s+([\u4e00-\u9fa5])/g, '$1$2');
+      // 再次合并（处理3个字被拆开的情况）
+      preprocessed = preprocessed.replace(/([\u4e00-\u9fa5])\s+([\u4e00-\u9fa5])/g, '$1$2');
+      // 合并所有文本（有时分类被拆成多行）
+      const rawText = preprocessed.replace(/\n+/g, ' ').replace(/\s{2,}/g, ' ').trim();
+      const lines = preprocessed.split('\n').map(l => l.trim()).filter(l => l);
+
+      // 所有小分类展平用于直接搜索
+      const allMinors = {};
+      for (const [maj, subs] of Object.entries(CATEGORY_TREE)) {
+        subs.forEach(sub => { allMinors[sub] = maj; });
+      }
+
+      // 验证大分类是否存在于CATEGORY_TREE（更宽松匹配）
+      function isValidMajor(name) {
+        if (!name) return false;
+        if (CATEGORY_TREE[name]) return true;
+        for (const cat of MAJOR_CATEGORIES) {
+          if (cat.includes(name) || name.includes(cat)) return true;
+          if (name.length >= 2 && editDistance(name, cat) <= 2) return true;
+        }
+        return false;
+      }
+
+      // 修正大分类名称（更宽松匹配）
+      function fixMajor(name) {
+        if (CATEGORY_TREE[name]) return name;
+        let best = name, bestDist = Infinity;
+        for (const cat of MAJOR_CATEGORIES) {
+          if (cat === name) return cat;
+          if (cat.includes(name) || name.includes(cat)) return cat;
+          const d = editDistance(name, cat);
+          if (d <= 2 && d < bestDist) { bestDist = d; best = cat; }
+        }
+        return best;
+      }
+
+      // 修正小分类名称（更宽松匹配）
+      function fixMinor(major, minor) {
+        if (!major || !CATEGORY_TREE[major]) return minor;
+        const subs = CATEGORY_TREE[major];
+        if (subs.includes(minor)) return minor;
+        let best = minor, bestDist = Infinity;
+        for (const sub of subs) {
+          if (sub.includes(minor) || minor.includes(sub)) return sub;
+          const d = editDistance(minor, sub);
+          if (d <= 2 && d < bestDist) { bestDist = d; best = sub; }
+        }
+        return best;
+      }
+
+      // 策略0：检查OCR文本中是否直接包含 "大分类小分类"（分隔符被吞掉的情况）
+      // 例如 OCR识别成 "金融理财银行" 或 "游戏射击"
+      const cleanedAll = rawText.replace(/[^a-zA-Z\u4e00-\u9fa5]/g, '');
+      for (const cat of MAJOR_CATEGORIES) {
+        const idx = cleanedAll.indexOf(cat);
+        if (idx !== -1) {
+          const afterCat = cleanedAll.substring(idx + cat.length);
+          if (CATEGORY_TREE[cat]) {
+            for (const sub of CATEGORY_TREE[cat]) {
+              if (afterCat.startsWith(sub) || afterCat.includes(sub)) {
+                return { major: cat, minor: sub };
+              }
+            }
+            // 模糊匹配小分类
+            if (afterCat.length >= 2) {
+              const candidate = afterCat.substring(0, Math.min(6, afterCat.length));
+              for (const sub of CATEGORY_TREE[cat]) {
+                if (sub !== '其他' && editDistance(candidate.substring(0, sub.length), sub) <= 1) {
+                  return { major: cat, minor: sub };
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // 策略1：匹配 "大分类 > 小分类" 格式（多种分隔符）
+      // 扩展分隔符：> 》 ➤ ▸ ► → - / | : ） ) ] 】及其OCR变体
+      const sepPattern = /([\u4e00-\u9fa5A-Za-z]{2,8})\s*[>》➤▸►→\-\/\|:：\)\）\]】\.·,，;；\s]+\s*([\u4e00-\u9fa5A-Za-z]{2,8})/;
       for (const line of lines) {
-        // 匹配 "大分类 > 小分类" 或 "大分类 》小分类" 或 "大分类>小分类"
-        const match = line.match(/([\u4e00-\u9fa5A-Za-z]+)\s*[>》➤▸►→]\s*([\u4e00-\u9fa5A-Za-z]+)/);
+        const match = line.match(sepPattern);
         if (match) {
-          return { major: match[1].trim(), minor: match[2].trim() };
+          let major = match[1].trim();
+          let minor = match[2].trim();
+          if (isValidMajor(major)) {
+            major = fixMajor(major);
+            minor = fixMinor(major, minor);
+            return { major, minor };
+          }
+          // 也许OCR把大小分类顺序反了，或者匹配到的不是大分类
+          // 尝试检查minor是否是大分类
+          if (isValidMajor(minor)) {
+            const fixedMajor = fixMajor(minor);
+            const fixedMinor = fixMinor(fixedMajor, major);
+            return { major: fixedMajor, minor: fixedMinor };
+          }
         }
       }
-      // 如果只找到两个中文短词（可能 ">" 没被识别），尝试从所有行中提取
-      const chineseWords = [];
-      for (const line of lines) {
-        const words = line.replace(/[^a-zA-Z\u4e00-\u9fa5\s]/g, '').trim();
-        if (words.length >= 2 && words.length <= 10) {
-          chineseWords.push(words);
+
+      // 策略1b：也对合并后的整行文本尝试
+      const matchFull = rawText.match(sepPattern);
+      if (matchFull) {
+        let major = matchFull[1].trim();
+        let minor = matchFull[2].trim();
+        if (isValidMajor(major)) {
+          major = fixMajor(major);
+          minor = fixMinor(major, minor);
+          return { major, minor };
         }
       }
-      if (chineseWords.length >= 2) {
-        return { major: chineseWords[0], minor: chineseWords[1] };
+
+      // 策略2：在所有文本中直接搜索已知的大分类名
+      const fullText = rawText.replace(/[^a-zA-Z\u4e00-\u9fa5\s]/g, ' ');
+      for (const cat of MAJOR_CATEGORIES) {
+        if (fullText.includes(cat)) {
+          // 在大分类后面找小分类
+          const afterIdx = fullText.indexOf(cat) + cat.length;
+          const afterText = fullText.substring(afterIdx).trim();
+          // 也看大分类前面的文本
+          const beforeText = fullText.substring(0, fullText.indexOf(cat)).trim();
+          // 在大分类后面的文本中搜索已知小分类
+          if (CATEGORY_TREE[cat]) {
+            for (const sub of CATEGORY_TREE[cat]) {
+              if (afterText.includes(sub)) {
+                return { major: cat, minor: sub };
+              }
+            }
+            // 也在前面的文本中找小分类（OCR可能把顺序搞反）
+            for (const sub of CATEGORY_TREE[cat]) {
+              if (beforeText.includes(sub)) {
+                return { major: cat, minor: sub };
+              }
+            }
+          }
+          // 取第一个2-6字的词作为小分类
+          const firstWord = afterText.match(/[\u4e00-\u9fa5A-Za-z]{2,6}/);
+          if (firstWord) {
+            const minor = fixMinor(cat, firstWord[0]);
+            return { major: cat, minor };
+          }
+          return { major: cat, minor: '' };
+        }
       }
-      if (chineseWords.length === 1) {
-        return { major: chineseWords[0], minor: '' };
+
+      // 策略3：模糊匹配大分类（OCR可能有错字）
+      const words = fullText.match(/[\u4e00-\u9fa5]{2,8}/g) || [];
+      for (const word of words) {
+        for (const cat of MAJOR_CATEGORIES) {
+          const dist = editDistance(word, cat);
+          if (dist <= 1 || (word.length >= 3 && cat.length >= 3 && dist <= 2)) {
+            // 找到模糊匹配的大分类，继续找小分类
+            const fixedMajor = cat;
+            const afterIdx = fullText.indexOf(word) + word.length;
+            const afterText = fullText.substring(afterIdx).trim();
+            if (CATEGORY_TREE[fixedMajor]) {
+              for (const sub of CATEGORY_TREE[fixedMajor]) {
+                if (afterText.includes(sub)) {
+                  return { major: fixedMajor, minor: sub };
+                }
+              }
+              // 模糊匹配小分类
+              const afterWords = afterText.match(/[\u4e00-\u9fa5A-Za-z]{2,6}/g) || [];
+              for (const aw of afterWords) {
+                for (const sub of CATEGORY_TREE[fixedMajor]) {
+                  if (editDistance(aw, sub) <= 1) {
+                    return { major: fixedMajor, minor: sub };
+                  }
+                }
+              }
+            }
+            return { major: fixedMajor, minor: '' };
+          }
+        }
       }
+
+      // 策略4：直接搜索已知小分类名，反推大分类
+      for (const word of words) {
+        for (const [sub, maj] of Object.entries(allMinors)) {
+          if (sub === '其他') continue;
+          if (word === sub || (word.length >= 2 && editDistance(word, sub) <= 1)) {
+            return { major: maj, minor: sub };
+          }
+        }
+      }
+
+      // 策略5：英文词匹配（某些分类含英文）
+      const engWords = fullText.match(/[A-Za-z]{2,}/gi) || [];
+      for (const ew of engWords) {
+        for (const [sub, maj] of Object.entries(allMinors)) {
+          if (sub === '其他') continue;
+          if (ew.toLowerCase() === sub.toLowerCase()) {
+            return { major: maj, minor: sub };
+          }
+        }
+      }
+
       return null;
     }
 
     // 并行OCR：名称 + 分类
     const ocrPromises = [];
 
-    // OCR 1: 识别App名称
+    // OCR 1: 识别App名称（多策略）
     if (nameW > 10 && nameH > 5) {
-      const enlargeScale = 2;
-      const nameCanvas = document.createElement('canvas');
-      nameCanvas.width = Math.round(nameW * enlargeScale);
-      nameCanvas.height = Math.round(nameH * enlargeScale);
-      const nameCtx = nameCanvas.getContext('2d');
-      nameCtx.imageSmoothingEnabled = true;
-      nameCtx.imageSmoothingQuality = 'high';
-      nameCtx.drawImage(cropImage, nameX, nameY, nameW, nameH, 0, 0, nameCanvas.width, nameCanvas.height);
-      const nameSrc = nameCanvas.toDataURL('image/png');
+      // 名称预处理函数：放大+二值化，与分类OCR同级预处理
+      function prepareNameCanvas(srcX, srcY, srcW, srcH, scale, threshold) {
+        const c = document.createElement('canvas');
+        c.width = Math.round(srcW * scale);
+        c.height = Math.round(srcH * scale);
+        const cCtx = c.getContext('2d');
+        cCtx.imageSmoothingEnabled = true;
+        cCtx.imageSmoothingQuality = 'high';
+        cCtx.fillStyle = '#ffffff';
+        cCtx.fillRect(0, 0, c.width, c.height);
+        cCtx.drawImage(cropImage, srcX, srcY, srcW, srcH, 0, 0, c.width, c.height);
+        // 二值化增强
+        const imgData = cCtx.getImageData(0, 0, c.width, c.height);
+        const pxData = imgData.data;
+        for (let i = 0; i < pxData.length; i += 4) {
+          const r = pxData[i], g = pxData[i+1], b = pxData[i+2];
+          const gray = r * 0.299 + g * 0.587 + b * 0.114;
+          const isGrayText = (gray < 180 && Math.abs(r-g) < 30 && Math.abs(g-b) < 30 && Math.abs(r-b) < 30);
+          const isText = gray < threshold || (isGrayText && gray < threshold + 40);
+          const val = isText ? 0 : 255;
+          pxData[i] = pxData[i+1] = pxData[i+2] = val;
+        }
+        cCtx.putImageData(imgData, 0, 0);
+        return c.toDataURL('image/png');
+      }
 
-      ocrPromises.push(
-        Tesseract.recognize(nameSrc, 'chi_sim+eng', { logger: () => {} })
-          .then(({ data: { text } }) => {
-            const lines = text.trim().split('\n').map(l => l.trim()).filter(l => l);
-            let name = '';
-            if (lines.length > 0) {
-              let firstLine = cleanOcrText(lines[0]);
-              if (firstLine.length <= 1 && lines.length > 1) {
-                firstLine = cleanOcrText(lines[0] + lines[1]);
-              }
-              name = firstLine;
-            }
-            if (name.length > 8) {
-              const parts = name.split(/\s+/);
-              name = parts[0];
-            }
-            if (name.length > 6) {
-              name = name.substring(0, 6);
-            }
-            name = correctOcrName(name);
-            return { type: 'name', value: name };
-          })
-          .catch(() => ({ type: 'name', value: '' }))
-      );
+      // 策略A：4x放大，阈值140
+      const nameSrcA = prepareNameCanvas(nameX, nameY, nameW, nameH, 4, 140);
+      // 策略B：4x放大，阈值180（更宽松，捕获浅色文字）
+      const nameSrcB = prepareNameCanvas(nameX, nameY, nameW, nameH, 4, 180);
+
+      const nameOcrPromise = Promise.all([
+        Tesseract.recognize(nameSrcA, 'chi_sim+eng', { logger: () => {} })
+          .then(({ data: { text } }) => text).catch(() => ''),
+        Tesseract.recognize(nameSrcB, 'chi_sim+eng', { logger: () => {} })
+          .then(({ data: { text } }) => text).catch(() => ''),
+      ]).then(texts => {
+        console.log('[名称OCR多策略原始文本]', { A: texts[0], B: texts[1] });
+
+        let bestName = '';
+        for (const t of texts) {
+          if (!t) continue;
+          const lines = t.trim().split('\n').map(l => l.trim()).filter(l => l);
+          if (lines.length === 0) continue;
+          let firstLine = cleanOcrText(lines[0]);
+          if (firstLine.length <= 1 && lines.length > 1) {
+            firstLine = cleanOcrText(lines[0] + lines[1]);
+          }
+          let name = firstLine;
+          if (name.length > 10) {
+            const parts = name.split(/\s+/);
+            name = parts[0];
+          }
+          if (name.length > 8) {
+            name = name.substring(0, 8);
+          }
+          name = correctOcrName(name);
+          // 取更长的有效名称（通常更完整）
+          if (name.length > bestName.length) {
+            bestName = name;
+          }
+        }
+        return { type: 'name', value: bestName };
+      }).catch(() => ({ type: 'name', value: '' }));
+
+      ocrPromises.push(nameOcrPromise);
     }
 
-    // OCR 2: 识别右侧分类标签
+    // OCR 2: 识别右侧分类标签（多策略尝试）
     if (catW > 10 && catH > 5) {
-      const enlargeScale = 2;
-      const catCanvas = document.createElement('canvas');
-      catCanvas.width = Math.round(catW * enlargeScale);
-      catCanvas.height = Math.round(catH * enlargeScale);
-      const catCtx = catCanvas.getContext('2d');
-      catCtx.imageSmoothingEnabled = true;
-      catCtx.imageSmoothingQuality = 'high';
-      catCtx.drawImage(cropImage, catX, catY, catW, catH, 0, 0, catCanvas.width, catCanvas.height);
-      const catSrc = catCanvas.toDataURL('image/png');
 
-      ocrPromises.push(
-        Tesseract.recognize(catSrc, 'chi_sim+eng', { logger: () => {} })
-          .then(({ data: { text } }) => {
-            const cat = extractCategoryFromOcr(text);
-            return { type: 'category', value: cat };
-          })
-          .catch(() => ({ type: 'category', value: null }))
-      );
+      // 创建预处理后的canvas用于OCR
+      function prepareOcrCanvas(srcX, srcY, srcW, srcH, scale, threshold, detectBlue) {
+        const c = document.createElement('canvas');
+        c.width = Math.round(srcW * scale);
+        c.height = Math.round(srcH * scale);
+        const cCtx = c.getContext('2d');
+        cCtx.imageSmoothingEnabled = true;
+        cCtx.imageSmoothingQuality = 'high';
+        cCtx.fillStyle = '#ffffff';
+        cCtx.fillRect(0, 0, c.width, c.height);
+        cCtx.drawImage(cropImage, srcX, srcY, srcW, srcH, 0, 0, c.width, c.height);
+
+        const imgData = cCtx.getImageData(0, 0, c.width, c.height);
+        const pxData = imgData.data;
+        for (let i = 0; i < pxData.length; i += 4) {
+          const r = pxData[i], g = pxData[i+1], b = pxData[i+2];
+          const gray = r * 0.299 + g * 0.587 + b * 0.114;
+          let isText = gray < threshold;
+          if (detectBlue) {
+            const isBlue = (b > 120 && b > r * 1.3 && b > g * 1.1);
+            isText = isText || isBlue;
+          }
+          // 额外检测灰色文字（某些分类标签是灰色的）
+          const isGrayText = (gray < 180 && Math.abs(r - g) < 30 && Math.abs(g - b) < 30 && Math.abs(r - b) < 30);
+          isText = isText || (isGrayText && gray < threshold + 40);
+          const val = isText ? 0 : 255;
+          pxData[i] = pxData[i+1] = pxData[i+2] = val;
+        }
+        cCtx.putImageData(imgData, 0, 0);
+        return c.toDataURL('image/png');
+      }
+
+      // 策略A：当前分类区域，标准参数（5x放大，阈值140，检测蓝色）
+      const catSrcA = prepareOcrCanvas(catX, catY, catW, catH, 5, 140, true);
+      // 策略B：当前分类区域，更宽松阈值（5x放大，阈值170，检测蓝色）
+      const catSrcB = prepareOcrCanvas(catX, catY, catW, catH, 5, 170, true);
+      // 策略C：更大的分类区域（从图片55%处开始），4x放大
+      const widerCatX = Math.floor(cropImage.naturalWidth * 0.55);
+      const widerCatW = cropImage.naturalWidth - widerCatX;
+      const catSrcC = prepareOcrCanvas(widerCatX, catY, widerCatW, catH, 4, 155, true);
+
+      // 执行多次OCR，取最佳结果
+      const catOcrPromise = Promise.all([
+        Tesseract.recognize(catSrcA, 'chi_sim+eng', { logger: () => {}, tessedit_pageseg_mode: '6' })
+          .then(({ data: { text } }) => text).catch(() => ''),
+        Tesseract.recognize(catSrcB, 'chi_sim+eng', { logger: () => {}, tessedit_pageseg_mode: '6' })
+          .then(({ data: { text } }) => text).catch(() => ''),
+        Tesseract.recognize(catSrcC, 'chi_sim+eng', { logger: () => {}, tessedit_pageseg_mode: '7' })
+          .then(({ data: { text } }) => text).catch(() => ''),
+      ]).then(texts => {
+        console.log('[分类OCR多策略原始文本]', { A: texts[0], B: texts[1], C: texts[2] });
+        
+        // 尝试每个OCR结果，返回第一个能解析出分类的
+        let bestCat = null;
+        for (const t of texts) {
+          if (!t) continue;
+          const cat = extractCategoryFromOcr(t);
+          if (cat && cat.major) {
+            // 如果有小分类就直接采用；没小分类也先记录，继续看下个
+            if (cat.minor) {
+              console.log('[分类OCR最终采用]', cat, '来源文本:', t);
+              return { type: 'category', value: cat };
+            }
+            if (!bestCat) bestCat = cat;
+          }
+        }
+        
+        // 如果单独都没解析出来，尝试合并所有OCR文本再解析
+        if (!bestCat) {
+          const combinedText = texts.filter(Boolean).join('\n');
+          bestCat = extractCategoryFromOcr(combinedText);
+        }
+        
+        console.log('[分类OCR最终结果]', bestCat);
+        return { type: 'category', value: bestCat };
+      }).catch((e) => { console.warn('[分类OCR失败]', e); return { type: 'category', value: null }; });
+
+      ocrPromises.push(catOcrPromise);
     }
 
     if (ocrPromises.length > 0) {
@@ -1630,16 +2123,11 @@
 
         cropItems[index].name = name || '未命名Logo';
 
-        // 优先使用OCR识别到的分类，其次用名称映射
+        // 分类策略：仅使用OCR识别结果，不用映射表猜测（避免"幻觉"）
+        // OCR没识别到分类时留空，让用户手动选择，绝不给出可能错误的分类
         if (ocrCat && ocrCat.major) {
           cropItems[index].category = ocrCat.major;
           cropItems[index].subcategory = ocrCat.minor || '';
-        } else {
-          const matched = matchCategory(cropItems[index].name);
-          if (matched.major) {
-            cropItems[index].category = matched.major;
-            cropItems[index].subcategory = matched.minor;
-          }
         }
 
         cropItems[index].ocrDone = true;
