@@ -538,7 +538,11 @@
 
       <div class="crop-workspace" id="cropWorkspace">
         <div class="crop-instructions">
-          <strong>操作说明：</strong>在下方图片上按住鼠标拖动，框选一个 Logo 区域，松开后输入名称。重复操作直到裁剪完所有 Logo。
+          <strong>操作说明：</strong>在下方图片上按住鼠标拖动，框选一个 Logo 区域，松开后自动识别名称。或点击「智能识别」一键检测所有 Logo。
+          <div style="margin-top:10px;">
+            <button class="btn btn-primary" id="autoDetectBtn" style="padding:8px 20px;font-size:0.88rem;">智能识别所有 Logo</button>
+            <span id="autoDetectStatus" style="margin-left:10px;font-size:0.85rem;color:#667eea;"></span>
+          </div>
         </div>
         <div class="crop-canvas-container" id="cropContainer">
           <img id="cropImage" src="" alt="截图">
@@ -842,6 +846,289 @@
     }
   });
 
+  // ============ 智能识别所有 Logo ============
+  document.getElementById('autoDetectBtn').addEventListener('click', autoDetectLogos);
+
+  function autoDetectLogos() {
+    if (!cropImage.src || !cropImage.naturalWidth) {
+      alert('请先上传截图');
+      return;
+    }
+
+    const btn = document.getElementById('autoDetectBtn');
+    const status = document.getElementById('autoDetectStatus');
+    btn.disabled = true;
+    btn.textContent = '识别中...';
+    status.textContent = '正在分析图片...';
+
+    setTimeout(() => { doAutoDetect(btn, status); }, 50);
+  }
+
+  function doAutoDetect(btn, status) {
+    const natW = cropImage.naturalWidth;
+    const natH = cropImage.naturalHeight;
+    const dispW = cropImage.clientWidth;
+    const dispH = cropImage.clientHeight;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = natW;
+    canvas.height = natH;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(cropImage, 0, 0);
+    const imgData = ctx.getImageData(0, 0, natW, natH);
+    const px = imgData.data;
+
+    function getP(x, y) {
+      if (x < 0 || x >= natW || y < 0 || y >= natH) return [255, 255, 255];
+      const i = (y * natW + x) * 4;
+      return [px[i], px[i+1], px[i+2]];
+    }
+
+    function isBg(r, g, b) {
+      return (r > 240 && g > 240 && b > 240);
+    }
+
+    // ===== 策略：行分隔 → 每行最左侧找图标（边界回扫法）=====
+    // App列表截图特征：
+    // 1. 每行一个App，行间有浅色/白色分隔
+    // 2. Logo图标在每行最左侧，是一个彩色的圆角正方形
+    // 3. 图标右侧是文字描述
+
+    // Step 1: 找行分隔线 — 完全白色的行
+    const rowBgRatio = [];
+    for (let y = 0; y < natH; y++) {
+      let bgCount = 0;
+      const step = Math.max(1, Math.floor(natW / 200));
+      let samples = 0;
+      for (let x = 0; x < natW; x += step) {
+        const [r, g, b] = getP(x, y);
+        if (isBg(r, g, b)) bgCount++;
+        samples++;
+      }
+      rowBgRatio.push(bgCount / samples);
+    }
+
+    // 找行带(bands)：连续的非空白行
+    const bgThreshold = 0.93;
+    const bands = [];
+    let bandStart = -1;
+    for (let y = 0; y < natH; y++) {
+      if (rowBgRatio[y] < bgThreshold) {
+        if (bandStart === -1) bandStart = y;
+      } else {
+        if (bandStart !== -1) {
+          const h = y - bandStart;
+          if (h > 30) {
+            bands.push({ top: bandStart, bottom: y, h });
+          }
+          bandStart = -1;
+        }
+      }
+    }
+    if (bandStart !== -1) {
+      const h = natH - bandStart;
+      if (h > 30) bands.push({ top: bandStart, bottom: natH, h });
+    }
+
+    if (bands.length === 0) {
+      status.textContent = '未检测到行结构，请尝试手动框选';
+      btn.disabled = false;
+      btn.textContent = '智能识别所有 Logo';
+      return;
+    }
+
+    // Step 2: 每行左侧找Logo图标
+    // 方法：从左向右扫描，找到第一个连续色块区域
+    // Logo图标特点：是一个较大的方形区域（占行高的大部分），且内部有丰富颜色
+    
+    const detectedLogos = [];
+
+    bands.forEach(band => {
+      const bandH = band.h;
+      // 只在左侧40%范围内查找Logo
+      const scanW = Math.floor(natW * 0.4);
+
+      // 用逐列扫描找到第一个内容密集的区域
+      // 从左到右，找到内容开始的x位置
+      let contentStartX = -1;
+      for (let x = 0; x < scanW; x++) {
+        let nonBgInCol = 0;
+        const stepY = Math.max(1, Math.floor(bandH / 50));
+        let total = 0;
+        for (let y = band.top; y < band.bottom; y += stepY) {
+          const [r, g, b] = getP(x, y);
+          if (!isBg(r, g, b)) nonBgInCol++;
+          total++;
+        }
+        if (nonBgInCol / total > 0.08) {
+          contentStartX = x;
+          break;
+        }
+      }
+
+      if (contentStartX === -1) return;
+
+      // 从contentStartX开始，向右找到内容结束的位置
+      // Logo结束后会有一段白色间隔，然后是文字
+      // 策略：找到连续的内容列，然后找到一个明显的间隔（连续N列背景）
+
+      // 先找内容的垂直边界（在contentStartX附近）
+      let topY = band.bottom, bottomY = band.top;
+
+      // 粗扫描：在行带左侧区域找非白色像素的y范围
+      for (let y = band.top; y < band.bottom; y++) {
+        for (let x = contentStartX; x < Math.min(contentStartX + scanW, natW); x += 2) {
+          const [r, g, b] = getP(x, y);
+          if (!isBg(r, g, b)) {
+            if (y < topY) topY = y;
+            if (y > bottomY) bottomY = y;
+            break; // 这行有内容，继续下一行
+          }
+        }
+      }
+
+      const contentH = bottomY - topY;
+      if (contentH < 20) return;
+
+      // 预估Logo大小：App图标通常接近行高的50-90%
+      // 扫描从contentStartX向右，在topY~bottomY范围内
+      // 找每列的内容密度，识别出"密集区域"（图标）和"稀疏区域"（间隔）
+
+      const colHasContent = [];
+      for (let x = contentStartX; x < scanW; x++) {
+        let nonBg = 0;
+        let total = 0;
+        for (let y = topY; y <= bottomY; y += 2) {
+          const [r, g, b] = getP(x, y);
+          if (!isBg(r, g, b)) nonBg++;
+          total++;
+        }
+        colHasContent.push(nonBg / Math.max(total, 1) > 0.06);
+      }
+
+      // 找第一个连续的内容块（就是Logo图标）
+      let logoStartX = -1, logoEndX = -1;
+      let gapCount = 0;
+      const maxGap = 6; // 允许Logo内部最多6列间隔（圆角区域可能中间有白色）
+      
+      for (let i = 0; i < colHasContent.length; i++) {
+        if (colHasContent[i]) {
+          if (logoStartX === -1) logoStartX = i;
+          logoEndX = i;
+          gapCount = 0;
+        } else {
+          if (logoStartX !== -1) {
+            gapCount++;
+            if (gapCount > maxGap) {
+              // 找到了Logo块的右边界
+              break;
+            }
+          }
+        }
+      }
+
+      if (logoStartX === -1) return;
+
+      // 转换回原始坐标
+      const logoX = contentStartX + logoStartX;
+      const logoRight = contentStartX + logoEndX;
+      const logoW = logoRight - logoX;
+
+      if (logoW < 20) return;
+
+      // 精细化：在Logo区域内找精确边界
+      let fMinX = logoRight, fMaxX = logoX, fMinY = bottomY, fMaxY = topY;
+      for (let y = topY; y <= bottomY; y++) {
+        for (let x = logoX; x <= logoRight; x++) {
+          const [r, g, b] = getP(x, y);
+          if (!isBg(r, g, b)) {
+            if (x < fMinX) fMinX = x;
+            if (x > fMaxX) fMaxX = x;
+            if (y < fMinY) fMinY = y;
+            if (y > fMaxY) fMaxY = y;
+          }
+        }
+      }
+
+      const finalW = fMaxX - fMinX;
+      const finalH = fMaxY - fMinY;
+      if (finalW < 20 || finalH < 20) return;
+
+      // 取方形：以较大边为准，居中
+      const cx = (fMinX + fMaxX) / 2;
+      const cy = (fMinY + fMaxY) / 2;
+      const size = Math.max(finalW, finalH);
+      // 宽高比检查：Logo应该接近正方形（aspect > 0.5）
+      const aspect = Math.min(finalW, finalH) / Math.max(finalW, finalH);
+      if (aspect < 0.45) return; // 太扁或太窄的不是Logo
+
+      detectedLogos.push({
+        cx, cy, size, w: finalW, h: finalH
+      });
+    });
+
+    if (detectedLogos.length === 0) {
+      status.textContent = '未检测到Logo图标，请尝试手动框选';
+      btn.disabled = false;
+      btn.textContent = '智能识别所有 Logo';
+      return;
+    }
+
+    // Step 3: 统一Logo尺寸
+    const sizes = detectedLogos.map(l => l.size).sort((a, b) => a - b);
+    const medianSize = sizes[Math.floor(sizes.length / 2)];
+
+    // 过滤掉尺寸差异太大的
+    const filtered = detectedLogos.filter(l => {
+      return l.size > medianSize * 0.5 && l.size < medianSize * 1.8;
+    });
+
+    if (filtered.length === 0) {
+      status.textContent = '未检测到Logo，请尝试手动框选';
+      btn.disabled = false;
+      btn.textContent = '智能识别所有 Logo';
+      return;
+    }
+
+    // 用统一尺寸 + 小padding
+    const uniformSize = medianSize;
+    const pad = Math.ceil(uniformSize * 0.08);
+
+    const finalLogos = filtered.map(logo => {
+      const half = Math.ceil(uniformSize / 2) + pad;
+      return {
+        x: Math.max(0, Math.floor(logo.cx - half)),
+        y: Math.max(0, Math.floor(logo.cy - half)),
+        w: Math.min(half * 2, natW),
+        h: Math.min(half * 2, natH)
+      };
+    });
+
+    status.textContent = `检测到 ${finalLogos.length} 个 Logo，正在裁剪并识别...`;
+
+    const scaleX = dispW / natW;
+    const scaleY = dispH / natH;
+
+    let processed = 0;
+    finalLogos.forEach((logo, i) => {
+      const displayRect = {
+        x: logo.x * scaleX,
+        y: logo.y * scaleY,
+        w: logo.w * scaleX,
+        h: logo.h * scaleY
+      };
+      setTimeout(() => {
+        extractCropRegion(displayRect);
+        processed++;
+        if (processed === finalLogos.length) {
+          status.textContent = `完成！共识别 ${finalLogos.length} 个 Logo`;
+          btn.disabled = false;
+          btn.textContent = '智能识别所有 Logo';
+        }
+      }, i * 300);
+    });
+  }
+
   function extractCropRegion(rect) {
     const scaleX = cropImage.naturalWidth / cropImage.clientWidth;
     const scaleY = cropImage.naturalHeight / cropImage.clientHeight;
@@ -862,69 +1149,95 @@
     renderCropList();
     updateGenerateBar();
 
-    // 取右侧区域做 OCR 识别名称和类别
-    const textX = (rect.x + rect.w) * scaleX;
-    const textY = rect.y * scaleY;
-    const textW = Math.min(rect.w * 3 * scaleX, cropImage.naturalWidth - textX);
-    const textH = rect.h * scaleY;
+    // ===== OCR识别App名称 =====
+    // 策略：取Logo右侧一小块区域（只要App名称，不要描述/类别等）
+    // App名称通常紧挨Logo右侧，字号较大，位于上半部分
+    
+    const logoNatW = rect.w * scaleX;
+    const logoNatH = rect.h * scaleY;
+    const logoNatX = rect.x * scaleX;
+    const logoNatY = rect.y * scaleY;
+    
+    // 名称区域：Logo右侧整行区域（和最初一样）
+    const nameX = logoNatX + logoNatW + 5;
+    const nameY = logoNatY;
+    const nameW = Math.min(logoNatW * 4, cropImage.naturalWidth - nameX);
+    const nameH = logoNatH;
 
-    if (textW > 10) {
-      const textCanvas = document.createElement('canvas');
-      textCanvas.width = textW;
-      textCanvas.height = textH;
-      const textCtx = textCanvas.getContext('2d');
-      textCtx.drawImage(cropImage, textX, textY, textW, textH, 0, 0, textW, textH);
+    function cleanOcrText(raw) {
+      if (!raw) return '';
+      let cleaned = raw.replace(/([\u4e00-\u9fa5])\s+([\u4e00-\u9fa5])/g, '$1$2');
+      cleaned = cleaned.replace(/([\u4e00-\u9fa5])\s+([\u4e00-\u9fa5])/g, '$1$2');
+      cleaned = cleaned.replace(/([\u4e00-\u9fa5])\s+(\d)/g, '$1$2');
+      cleaned = cleaned.replace(/(\d)\s+([\u4e00-\u9fa5])/g, '$1$2');
+      cleaned = cleaned.replace(/([\u4e00-\u9fa5])\s+([a-zA-Z])/g, '$1$2');
+      cleaned = cleaned.replace(/([a-zA-Z])\s+([\u4e00-\u9fa5])/g, '$1$2');
+      cleaned = cleaned.replace(/\s{2,}/g, ' ');
+      cleaned = cleaned.trim();
+      cleaned = cleaned.replace(/[|\\\/\[\]{}()（）<>《》「」【】~`^*#@$%&+=。，、；：？！""''…—·•]+/g, '');
+      cleaned = cleaned.replace(/\.{2,}/g, '');
+      return cleaned.trim();
+    }
 
-      // 提高对比度便于 OCR
-      const imageData = textCtx.getImageData(0, 0, textW, textH);
-      const data = imageData.data;
-      for (let i = 0; i < data.length; i += 4) {
-        const gray = data[i] * 0.299 + data[i+1] * 0.587 + data[i+2] * 0.114;
-        const val = gray < 160 ? 0 : 255;
-        data[i] = data[i+1] = data[i+2] = val;
-      }
-      textCtx.putImageData(imageData, 0, 0);
+    if (nameW > 10 && nameH > 5) {
+      // 直接裁剪原图区域，不做任何预处理，只放大2倍
+      const enlargeScale = 2;
+      const nameCanvas = document.createElement('canvas');
+      nameCanvas.width = Math.round(nameW * enlargeScale);
+      nameCanvas.height = Math.round(nameH * enlargeScale);
+      const nameCtx = nameCanvas.getContext('2d');
+      nameCtx.imageSmoothingEnabled = true;
+      nameCtx.imageSmoothingQuality = 'high';
+      nameCtx.drawImage(cropImage, nameX, nameY, nameW, nameH, 0, 0, nameCanvas.width, nameCanvas.height);
 
-      const textSrc = textCanvas.toDataURL('image/png');
+      // 不做任何二值化或对比度处理，让Tesseract用原图
 
-      Tesseract.recognize(textSrc, 'chi_sim+eng', {
+      const nameSrc = nameCanvas.toDataURL('image/png');
+
+      Tesseract.recognize(nameSrc, 'chi_sim+eng', {
         logger: () => {}
       }).then(({ data: { text } }) => {
+        // 取第一行有意义的文字作为App名称
         const lines = text.trim().split('\n').map(l => l.trim()).filter(l => l);
-
-        // 第一行提取名称
-        let name = lines[0] || '';
-        const nameMatch = name.match(/[\u4e00-\u9fa5a-zA-Z][\u4e00-\u9fa5a-zA-Z0-9\-·\s]*/);
-        if (nameMatch) name = nameMatch[0].trim();
-        const nameParts = name.split(/\s{2,}/);
-        name = nameParts[0].trim();
-
-        // 从所有文本中提取类别（匹配 "xxx > xxx" 格式）
-        let category = '';
-        const fullText = lines.join(' ');
-        const catMatch = fullText.match(/[\u4e00-\u9fa5a-zA-Z]+\s*[>》]\s*[\u4e00-\u9fa5a-zA-Z]+/);
-        if (catMatch) {
-          category = catMatch[0].replace(/\s+/g, ' ').trim();
+        
+        let name = '';
+        if (lines.length > 0) {
+          // 第一行就是App名称（可能带...省略号）
+          let firstLine = cleanOcrText(lines[0]);
+          // 如果第一行太短（1个字），尝试和第二行合并
+          if (firstLine.length <= 1 && lines.length > 1) {
+            firstLine = cleanOcrText(lines[0] + lines[1]);
+          }
+          name = firstLine;
+        }
+        
+        // 截断：App名称一般不超过6个中文字
+        if (name.length > 8) {
+          // 先按空格分割取第一部分
+          const parts = name.split(/\s+/);
+          name = parts[0];
+        }
+        if (name.length > 6) {
+          name = name.substring(0, 6);
         }
 
         if (index < cropItems.length) {
-          if (name) cropItems[index].name = name;
-          // 优先按名称匹配类别，其次用 OCR 识别的类别
-          const matched = matchCategory(name);
-          cropItems[index].category = matched || category || '';
+          cropItems[index].name = name || '未命名Logo';
+          const matched = matchCategory(cropItems[index].name);
+          if (matched) cropItems[index].category = matched;
           cropItems[index].ocrDone = true;
           renderCropList();
         }
       }).catch(() => {
         if (index < cropItems.length) {
-          cropItems[index].name = '未命名 Logo';
+          cropItems[index].name = '未命名Logo';
           cropItems[index].category = '';
           cropItems[index].ocrDone = true;
           renderCropList();
         }
       });
     } else {
-      cropItems[index].name = '未命名 Logo';
+      cropItems[index].name = '未命名Logo';
       cropItems[index].category = '';
       cropItems[index].ocrDone = true;
       renderCropList();
