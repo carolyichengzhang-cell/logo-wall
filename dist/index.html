@@ -228,6 +228,78 @@
       margin-top: 4px;
     }
 
+    /* 产品选择器 */
+    .product-selector {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: #fff;
+      border-radius: 12px;
+      padding: 12px 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .product-selector label {
+      font-weight: 600;
+      font-size: 0.95rem;
+      color: #555;
+      white-space: nowrap;
+    }
+    .product-options {
+      display: flex;
+      gap: 8px;
+    }
+    .product-btn {
+      padding: 6px 18px;
+      border: 2px solid #ddd;
+      border-radius: 20px;
+      background: #fff;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      color: #666;
+    }
+    .product-btn:hover { border-color: #667eea; color: #667eea; }
+    .product-btn.active {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: #fff;
+      border-color: transparent;
+    }
+
+    /* 产品/地区标签 */
+    .tag-group {
+      display: flex;
+      gap: 4px;
+      margin-top: 4px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .tag-product, .tag-region {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 0.72rem;
+      font-weight: 600;
+    }
+    .tag-product {
+      background: #667eea22;
+      color: #667eea;
+    }
+    .tag-region {
+      background: #52c41a22;
+      color: #389e0d;
+    }
+    .crop-item .region-select {
+      width: 100%;
+      padding: 5px 8px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      margin-top: 4px;
+      cursor: pointer;
+    }
+
     /* 模式二：直接上传多个Logo */
     .direct-upload-grid {
       display: grid;
@@ -555,6 +627,16 @@
 </div>
 
 <div class="container">
+  <!-- 全局产品选择 -->
+  <div class="product-selector" id="productSelector">
+    <label>当前产品：</label>
+    <div class="product-options">
+      <button class="product-btn active" data-product="IM">IM</button>
+      <button class="product-btn" data-product="RTC">RTC</button>
+      <button class="product-btn" data-product="美颜">美颜</button>
+    </div>
+  </div>
+
   <!-- 模式切换 -->
   <div class="tabs">
     <button class="tab-btn active" data-tab="crop">从截图裁剪 Logo</button>
@@ -685,6 +767,71 @@
   // ============ 数据 ============
   let logoEntries = [];
 
+  // 产品列表
+  const PRODUCTS = ['IM', 'RTC', '美颜'];
+  let currentProduct = 'IM'; // 全局当前选中的产品
+
+  // 地区列表
+  const REGIONS = ['中国大陆', '中国港澳台', '日本', '韩国', '东南亚', '南亚', '中东', '欧洲', '北美', '拉美', '非洲', '其他'];
+
+  // App名称 → 地区映射（根据App语言/来源自动识别）
+  const APP_REGION_MAP = {
+    // 日本App
+    'LINE': '日本', 'PayPay': '日本', 'メルカリ': '日本', 'Yahoo!': '日本',
+    'SmartNews': '日本', 'AbemaTV': '日本', 'dTV': '日本', 'U-NEXT': '日本',
+    'Rakuten': '日本', '楽天': '日本', 'DAZN': '日本',
+    // 韩国App
+    'KakaoTalk': '韩国', 'Kakao': '韩国', 'Naver': '韩国', 'Coupang': '韩国',
+    'Toss': '韩国', 'BAND': '韩国', 'Baemin': '韩国',
+    // 东南亚App
+    'Grab': '东南亚', 'Gojek': '东南亚', 'Shopee': '东南亚', 'Lazada': '东南亚',
+    'Tokopedia': '东南亚', 'Bukalapak': '东南亚', 'GCash': '东南亚',
+    'Dana': '东南亚', 'OVO': '东南亚', 'Momo': '东南亚',
+    // 南亚App
+    'Paytm': '南亚', 'PhonePe': '南亚', 'Flipkart': '南亚', 'Swiggy': '南亚',
+    'Zomato': '南亚', 'Ola': '南亚', 'JioMart': '南亚',
+    // 中东App
+    'Careem': '中东', 'Noon': '中东', 'HungerStation': '中东', 'Talabat': '中东',
+    // 北美App
+    'Uber': '北美', 'Lyft': '北美', 'DoorDash': '北美', 'Venmo': '北美',
+    'Cash App': '北美', 'Hulu': '北美',
+    // 欧洲App
+    'Revolut': '欧洲', 'N26': '欧洲', 'Bolt': '欧洲', 'Deliveroo': '欧洲',
+    'Just Eat': '欧洲', 'Glovo': '欧洲',
+    // 拉美App
+    'Mercado Libre': '拉美', 'Rappi': '拉美', 'iFood': '拉美', 'Nubank': '拉美',
+    // 全球App（不做地区归属，需人工选）
+    'WhatsApp': '', 'Instagram': '', 'Facebook': '', 'TikTok': '', 'YouTube': '',
+    'Twitter': '', 'X': '', 'Telegram': '', 'Discord': '', 'Zoom': '',
+    'Netflix': '', 'Spotify': '', 'Amazon': '',
+  };
+
+  // 根据App名称中的文字特征猜测地区
+  function guessRegionByName(name) {
+    if (!name) return '';
+    // 1. 先查映射表
+    if (APP_REGION_MAP[name] !== undefined) return APP_REGION_MAP[name];
+    // 模糊匹配映射表
+    for (const [key, region] of Object.entries(APP_REGION_MAP)) {
+      if (name.includes(key) || key.includes(name)) return region;
+    }
+    // 2. 根据文字特征判断
+    // 日文假名
+    if (/[\u3040-\u309F\u30A0-\u30FF]/.test(name)) return '日本';
+    // 韩文
+    if (/[\uAC00-\uD7AF\u1100-\u11FF]/.test(name)) return '韩国';
+    // 阿拉伯文
+    if (/[\u0600-\u06FF]/.test(name)) return '中东';
+    // 泰文
+    if (/[\u0E00-\u0E7F]/.test(name)) return '东南亚';
+    // 印地文/天城文
+    if (/[\u0900-\u097F]/.test(name)) return '南亚';
+    // 纯中文（大概率中国大陆）
+    if (/^[\u4e00-\u9fa5]+$/.test(name)) return '中国大陆';
+    // 中英混合（大概率中国大陆）
+    if (/[\u4e00-\u9fa5]/.test(name)) return '中国大陆';
+    return '';
+  }
   // ============ Logo 库 (localStorage 持久化) ============
   const LIBRARY_KEY = 'logo_wall_library';
 
@@ -715,6 +862,8 @@
           name: item.name || '未命名',
           category: item.category || '',
           subcategory: item.subcategory || '',
+          product: item.product || '',
+          region: item.region || '',
           addedAt: Date.now()
         });
       }
@@ -1096,6 +1245,15 @@
     }
     return { major: '', minor: '' };
   }
+
+  // ============ 产品选择器 ============
+  document.querySelectorAll('.product-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.product-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentProduct = btn.dataset.product;
+    });
+  });
 
   // ============ Tab 切换 ============
   document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -1642,7 +1800,7 @@
     const trimmed = trimWhiteBorder(canvas);
     const src = trimmed.toDataURL('image/png');
     const index = cropItems.length;
-    cropItems.push({ src, name: '识别中...', category: '识别中...', subcategory: '', ocrDone: false });
+    cropItems.push({ src, name: '识别中...', category: '识别中...', subcategory: '', product: currentProduct, region: '', ocrDone: false });
     renderCropList();
     updateGenerateBar();
 
@@ -2123,6 +2281,12 @@
 
         cropItems[index].name = name || '未命名Logo';
 
+        // 根据App名称自动猜测地区
+        const guessedRegion = guessRegionByName(name);
+        if (guessedRegion) {
+          cropItems[index].region = guessedRegion;
+        }
+
         // 分类策略：仅使用OCR识别结果，不用映射表猜测（避免"幻觉"）
         // OCR没识别到分类时留空，让用户手动选择，绝不给出可能错误的分类
         if (ocrCat && ocrCat.major) {
@@ -2169,13 +2333,25 @@
         });
       }
 
+      // 地区选项
+      let regionOptions = '<option value="">地区</option>';
+      REGIONS.forEach(r => {
+        const selected = item.region === r ? 'selected' : '';
+        regionOptions += `<option value="${r}" ${selected}>${r}</option>`;
+      });
+
       div.innerHTML = `
         <img src="${item.src}" alt="logo">
+        <div class="tag-group">
+          <span class="tag-product">${item.product || ''}</span>
+          ${item.region ? `<span class="tag-region">${item.region}</span>` : ''}
+        </div>
         <input type="text" value="${item.name}" placeholder="Logo 名称" data-index="${i}" data-field="name" ${disabled}>
         <div class="category-group">
           <select data-index="${i}" data-field="category" ${disabled}>${majorOptions}</select>
           <select data-index="${i}" data-field="subcategory" ${disabled}>${minorOptions}</select>
         </div>
+        <select class="region-select" data-index="${i}" data-field="region" ${disabled}>${regionOptions}</select>
         ${statusHtml}
         <div class="crop-item-actions">
           <button class="remove-crop" data-index="${i}">删除</button>
@@ -2188,12 +2364,15 @@
       el.addEventListener('input', (e) => {
         const idx = e.target.dataset.index;
         cropItems[idx].name = e.target.value;
+        // 自动更新地区猜测
+        const guessedRegion = guessRegionByName(e.target.value);
+        if (guessedRegion) cropItems[idx].region = guessedRegion;
         const matched = matchCategory(e.target.value);
         if (matched.major) {
           cropItems[idx].category = matched.major;
           cropItems[idx].subcategory = matched.minor;
-          renderCropList();
         }
+        renderCropList();
       });
     });
     cropList.querySelectorAll('select[data-field="category"]').forEach(el => {
@@ -2208,6 +2387,12 @@
       el.addEventListener('change', (e) => {
         const idx = e.target.dataset.index;
         cropItems[idx].subcategory = e.target.value;
+      });
+    });
+    cropList.querySelectorAll('select[data-field="region"]').forEach(el => {
+      el.addEventListener('change', (e) => {
+        const idx = e.target.dataset.index;
+        cropItems[idx].region = e.target.value;
       });
     });
     cropList.querySelectorAll('.remove-crop').forEach(btn => {
@@ -2238,7 +2423,7 @@
       const reader = new FileReader();
       reader.onload = (e) => {
         const name = file.name.replace(/\.[^/.]+$/, '');
-        directItems.push({ src: e.target.result, name });
+        directItems.push({ src: e.target.result, name, product: currentProduct, region: guessRegionByName(name) });
         renderDirectGrid();
         updateGenerateBar();
       };
@@ -2251,9 +2436,21 @@
     directItems.forEach((item, i) => {
       const div = document.createElement('div');
       div.className = 'direct-item';
+
+      let regionOptions = '<option value="">地区</option>';
+      REGIONS.forEach(r => {
+        const selected = item.region === r ? 'selected' : '';
+        regionOptions += `<option value="${r}" ${selected}>${r}</option>`;
+      });
+
       div.innerHTML = `
         <img src="${item.src}" alt="logo">
+        <div class="tag-group">
+          <span class="tag-product">${item.product || ''}</span>
+          ${item.region ? `<span class="tag-region">${item.region}</span>` : ''}
+        </div>
         <input type="text" value="${item.name}" placeholder="Logo 名称" data-index="${i}">
+        <select class="region-select" data-index="${i}" data-field="region" style="width:100%;padding:5px 8px;border:1px solid #ddd;border-radius:6px;font-size:0.78rem;margin-top:4px;">${regionOptions}</select>
         <button class="remove-direct" data-index="${i}">删除</button>
       `;
       directGrid.appendChild(div);
@@ -2261,7 +2458,16 @@
 
     directGrid.querySelectorAll('input').forEach(input => {
       input.addEventListener('input', (e) => {
-        directItems[e.target.dataset.index].name = e.target.value;
+        const idx = e.target.dataset.index;
+        directItems[idx].name = e.target.value;
+        const guessedRegion = guessRegionByName(e.target.value);
+        if (guessedRegion) directItems[idx].region = guessedRegion;
+        renderDirectGrid();
+      });
+    });
+    directGrid.querySelectorAll('select[data-field="region"]').forEach(el => {
+      el.addEventListener('change', (e) => {
+        directItems[e.target.dataset.index].region = e.target.value;
       });
     });
     directGrid.querySelectorAll('.remove-direct').forEach(btn => {
@@ -2373,6 +2579,15 @@
 
       div.appendChild(img);
       div.appendChild(nameEl);
+
+      // 产品和地区标签
+      if (entry.product || entry.region) {
+        const tagDiv = document.createElement('div');
+        tagDiv.className = 'tag-group';
+        if (entry.product) tagDiv.innerHTML += `<span class="tag-product">${entry.product}</span>`;
+        if (entry.region) tagDiv.innerHTML += `<span class="tag-region">${entry.region}</span>`;
+        div.appendChild(tagDiv);
+      }
 
       if (entry.category) {
         const catEl = document.createElement('div');
@@ -2498,6 +2713,8 @@
       ws.columns = [
         { header: 'Logo', key: 'logo', width: 12 },
         { header: '应用名称', key: 'name', width: 20 },
+        { header: '产品', key: 'product', width: 10 },
+        { header: '地区', key: 'region', width: 14 },
         { header: '大分类', key: 'major', width: 16 },
         { header: '小分类', key: 'minor', width: 16 },
       ];
@@ -2516,7 +2733,7 @@
       for (let i = 0; i < items.length; i++) {
         const entry = items[i];
         const rowIdx = i + 2;
-        const row = ws.addRow(['', entry.name || '', entry.category || '', entry.subcategory || '']);
+        const row = ws.addRow(['', entry.name || '', entry.product || '', entry.region || '', entry.category || '', entry.subcategory || '']);
         row.height = 55;
         row.eachCell(cell => {
           cell.alignment = { horizontal: 'center', vertical: 'middle' };
