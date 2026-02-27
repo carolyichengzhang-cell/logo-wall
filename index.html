@@ -1,0 +1,1392 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Logo 墙生成器</title>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f0f2f5;
+      min-height: 100vh;
+      color: #333;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 36px 20px;
+      text-align: center;
+      color: #fff;
+    }
+    .header h1 { font-size: 2rem; font-weight: 700; margin-bottom: 6px; }
+    .header p { font-size: 0.95rem; opacity: 0.85; }
+
+    .container { max-width: 1200px; margin: 0 auto; padding: 28px 20px; }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 0;
+      margin-bottom: 24px;
+      background: #fff;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 14px;
+      border: none;
+      background: #fff;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #888;
+      cursor: pointer;
+      transition: all 0.2s;
+      border-bottom: 3px solid transparent;
+    }
+    .tab-btn.active {
+      color: #667eea;
+      border-bottom-color: #667eea;
+      background: #f8f9ff;
+    }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* 通用卡片 */
+    .card {
+      background: #fff;
+      border-radius: 14px;
+      padding: 28px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+      margin-bottom: 24px;
+    }
+    .card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 16px; color: #444; }
+
+    /* 上传区域 */
+    .upload-area {
+      border: 2px dashed #c4c9d4;
+      border-radius: 12px;
+      padding: 44px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s;
+      background: #fafbfc;
+    }
+    .upload-area:hover, .upload-area.dragover {
+      border-color: #667eea;
+      background: #f0f1ff;
+    }
+    .upload-area svg { width: 42px; height: 42px; color: #667eea; margin-bottom: 12px; }
+    .upload-area h3 { font-size: 1.05rem; margin-bottom: 4px; color: #444; }
+    .upload-area p { font-size: 0.85rem; color: #999; }
+    .upload-area input { display: none; }
+
+    /* 截图裁剪模式 */
+    .crop-workspace {
+      display: none;
+      margin-top: 20px;
+    }
+    .crop-workspace.visible { display: block; }
+
+    .crop-canvas-container {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid #e0e0e0;
+      border-radius: 10px;
+      background: #f9f9f9;
+      cursor: crosshair;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .crop-canvas-container img {
+      display: block;
+      max-width: 100%;
+      -webkit-user-drag: none;
+      user-select: none;
+      pointer-events: none;
+    }
+
+    .crop-selection-overlay {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 10;
+    }
+
+    .crop-rect {
+      position: absolute;
+      border: 2px dashed #667eea;
+      background: rgba(102,126,234,0.15);
+      pointer-events: none;
+      z-index: 11;
+      display: none;
+    }
+
+    .crop-instructions {
+      margin: 12px 0;
+      padding: 12px 16px;
+      background: #fff8e6;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      color: #8a6d00;
+      line-height: 1.6;
+    }
+
+    /* 裁剪列表 */
+    .crop-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+    .crop-item {
+      background: #fafbfc;
+      border: 1px solid #eee;
+      border-radius: 10px;
+      padding: 12px;
+      text-align: center;
+    }
+    .crop-item img {
+      width: 72px;
+      height: 72px;
+      object-fit: contain;
+      border-radius: 14px;
+      margin-bottom: 8px;
+      background: #fff;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+    .crop-item input {
+      width: 100%;
+      padding: 6px 10px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      text-align: center;
+      outline: none;
+    }
+    .crop-item input:focus { border-color: #667eea; }
+    .crop-item select {
+      width: 100%;
+      padding: 5px 8px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      text-align: center;
+      outline: none;
+      color: #667eea;
+      background: #fff;
+      cursor: pointer;
+      margin-top: 4px;
+    }
+    .crop-item select:focus { border-color: #667eea; }
+    .crop-item .crop-item-actions {
+      margin-top: 6px;
+    }
+    .crop-item .remove-crop {
+      background: none;
+      border: none;
+      color: #ff4d4f;
+      cursor: pointer;
+      font-size: 0.82rem;
+    }
+    .crop-item .ocr-status {
+      font-size: 0.78rem;
+      color: #667eea;
+      margin-top: 4px;
+    }
+
+    /* 模式二：直接上传多个Logo */
+    .direct-upload-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 14px;
+      margin-top: 16px;
+    }
+    .direct-item {
+      background: #fafbfc;
+      border: 1px solid #eee;
+      border-radius: 10px;
+      padding: 12px;
+      text-align: center;
+    }
+    .direct-item img {
+      width: 64px;
+      height: 64px;
+      object-fit: contain;
+      border-radius: 12px;
+      margin-bottom: 8px;
+      background: #fff;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+    .direct-item input {
+      width: 100%;
+      padding: 5px 8px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      text-align: center;
+      outline: none;
+    }
+    .direct-item input:focus { border-color: #667eea; }
+    .direct-item .remove-direct {
+      background: none;
+      border: none;
+      color: #ff4d4f;
+      cursor: pointer;
+      font-size: 0.82rem;
+      margin-top: 4px;
+    }
+
+    /* 生成按钮 */
+    .generate-bar {
+      text-align: center;
+      margin: 24px 0;
+      display: none;
+    }
+    .generate-bar.visible { display: block; }
+
+    .btn {
+      padding: 11px 28px;
+      border: none;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: #fff;
+    }
+    .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+    .btn-danger { background: #ff4d4f; color: #fff; margin-left: 10px; }
+    .btn-secondary { background: #eee; color: #555; margin-left: 10px; }
+
+    /* Logo 墙展示 */
+    .wall-section { display: none; }
+    .wall-section.visible { display: block; }
+
+    .wall-toolbar {
+      background: #fff;
+      border-radius: 14px;
+      padding: 18px 24px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+      margin-bottom: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 18px;
+      align-items: center;
+    }
+    .wall-toolbar label {
+      font-size: 0.88rem;
+      font-weight: 500;
+      color: #555;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .wall-toolbar select,
+    .wall-toolbar input[type="range"] {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 5px 8px;
+      font-size: 0.88rem;
+      outline: none;
+    }
+    .wall-toolbar input[type="range"] { width: 110px; }
+    .wall-toolbar input[type="color"] {
+      width: 32px; height: 32px; padding: 2px;
+      border: 1px solid #ddd; border-radius: 8px; cursor: pointer;
+    }
+    .wall-toolbar-actions {
+      margin-left: auto;
+      display: flex;
+      gap: 8px;
+    }
+
+    .logo-wall-wrapper {
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+
+    .logo-wall {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 28px;
+      padding: 40px;
+      background: #fff;
+      transition: all 0.3s;
+    }
+
+    .logo-wall.layout-flex {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .logo-wall.layout-rows {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: stretch;
+    }
+
+    .logo-entry {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 18px 12px;
+      border-radius: 12px;
+      transition: all 0.3s;
+    }
+    .logo-entry:hover { transform: translateY(-3px); }
+
+    .logo-entry img {
+      width: 64px;
+      height: 64px;
+      object-fit: contain;
+      border-radius: 14px;
+      margin-bottom: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .logo-entry .logo-name {
+      font-size: 0.82rem;
+      color: #555;
+      text-align: center;
+      font-weight: 500;
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .logo-entry .logo-category {
+      font-size: 0.72rem;
+      color: #667eea;
+      text-align: center;
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      margin-top: 2px;
+    }
+
+    .logo-wall.hide-names .logo-entry .logo-name { display: none; }
+    .logo-wall.hide-names .logo-entry .logo-category { display: none; }
+
+    .logo-wall.grayscale .logo-entry img { filter: grayscale(100%); transition: filter 0.3s; }
+    .logo-wall.grayscale .logo-entry:hover img { filter: grayscale(0%); }
+
+    @media (max-width: 768px) {
+      .header h1 { font-size: 1.5rem; }
+      .card { padding: 18px; }
+      .logo-wall { padding: 20px; gap: 16px; }
+      .wall-toolbar { padding: 14px; gap: 10px; }
+      .wall-toolbar-actions { margin-left: 0; width: 100%; }
+      .crop-list { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+      .library-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+    }
+
+    /* Logo 库 */
+    .library-filter {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+    .filter-tag {
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      border: 1px solid #e0e0e0;
+      background: #fff;
+      color: #666;
+      transition: all 0.2s;
+      user-select: none;
+    }
+    .filter-tag:hover { border-color: #667eea; color: #667eea; }
+    .filter-tag.active {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: #fff;
+      border-color: transparent;
+    }
+    .filter-tag .tag-count {
+      font-size: 0.75rem;
+      opacity: 0.8;
+      margin-left: 4px;
+    }
+
+    .library-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 14px;
+    }
+    .library-empty {
+      grid-column: 1/-1;
+      text-align: center;
+      padding: 48px 20px;
+      color: #aaa;
+      font-size: 0.95rem;
+    }
+    .library-item {
+      position: relative;
+      background: #fafbfc;
+      border: 2px solid #eee;
+      border-radius: 12px;
+      padding: 14px 10px 10px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      user-select: none;
+    }
+    .library-item:hover { border-color: #c4c9d4; }
+    .library-item.selected {
+      border-color: #667eea;
+      background: #f0f1ff;
+      box-shadow: 0 0 0 3px rgba(102,126,234,0.15);
+    }
+    .library-item .lib-check {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 2px solid #ccc;
+      background: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      color: transparent;
+      transition: all 0.2s;
+    }
+    .library-item.selected .lib-check {
+      border-color: #667eea;
+      background: #667eea;
+      color: #fff;
+    }
+    .library-item img {
+      width: 60px;
+      height: 60px;
+      object-fit: contain;
+      border-radius: 12px;
+      margin-bottom: 8px;
+      background: #fff;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+    .library-item .lib-name {
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: #333;
+      max-width: 140px;
+      margin: 0 auto;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .library-item .lib-cat {
+      font-size: 0.75rem;
+      color: #667eea;
+      margin-top: 2px;
+      max-width: 140px;
+      margin-left: auto;
+      margin-right: auto;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Logo 墙生成器</h1>
+  <p>从截图中裁剪 Logo，或直接上传 Logo 图片，一键生成精美 Logo 墙</p>
+</div>
+
+<div class="container">
+  <!-- 模式切换 -->
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="crop">从截图裁剪 Logo</button>
+    <button class="tab-btn" data-tab="direct">直接上传 Logo</button>
+    <button class="tab-btn" data-tab="library">我的 Logo 库</button>
+  </div>
+
+  <!-- 模式一：截图裁剪 -->
+  <div class="tab-content active" id="tab-crop">
+    <div class="card">
+      <h3>上传包含 Logo 列表的截图</h3>
+      <div class="upload-area" id="cropUploadArea">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+        </svg>
+        <h3>点击或拖拽上传截图</h3>
+        <p>上传包含多个 Logo 的截图，然后框选每个 Logo</p>
+        <input type="file" id="cropFileInput" accept="image/*">
+      </div>
+
+      <div class="crop-workspace" id="cropWorkspace">
+        <div class="crop-instructions">
+          <strong>操作说明：</strong>在下方图片上按住鼠标拖动，框选一个 Logo 区域，松开后输入名称。重复操作直到裁剪完所有 Logo。
+        </div>
+        <div class="crop-canvas-container" id="cropContainer">
+          <img id="cropImage" src="" alt="截图">
+          <div id="cropSelectionOverlay" class="crop-selection-overlay"></div>
+          <div id="cropRect" class="crop-rect"></div>
+        </div>
+
+        <h3 style="margin-top:20px;">已裁剪的 Logo（<span id="cropCount">0</span> 个）</h3>
+        <div class="crop-list" id="cropList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 模式二：直接上传 -->
+  <div class="tab-content" id="tab-direct">
+    <div class="card">
+      <h3>直接上传 Logo 图片</h3>
+      <div class="upload-area" id="directUploadArea">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+        </svg>
+        <h3>点击或拖拽上传 Logo 图片</h3>
+        <p>支持 JPG、PNG、SVG、WebP，可一次选择多张</p>
+        <input type="file" id="directFileInput" multiple accept="image/*">
+      </div>
+
+      <div class="direct-upload-grid" id="directGrid"></div>
+    </div>
+  </div>
+
+  <!-- 模式三：我的Logo库 -->
+  <div class="tab-content" id="tab-library">
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <h3 style="margin-bottom:0;">我的 Logo 库（<span id="libraryCount">0</span> 个）</h3>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button class="btn btn-primary" id="libraryGenerateBtn" style="padding:8px 18px;font-size:0.88rem;">用选中项生成 Logo 墙</button>
+          <button class="btn btn-secondary" id="librarySelectAllBtn" style="padding:8px 14px;font-size:0.85rem;margin-left:0;">全选</button>
+          <button class="btn btn-danger" id="libraryDeleteSelectedBtn" style="padding:8px 14px;font-size:0.85rem;margin-left:0;">删除选中</button>
+        </div>
+      </div>
+      <div class="library-filter" id="libraryFilter">
+        <span class="filter-tag active" data-category="all">全部</span>
+      </div>
+      <div class="library-grid" id="libraryGrid">
+        <div class="library-empty">Logo 库为空，去裁剪或上传 Logo 吧</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 生成按钮 -->
+  <div class="generate-bar" id="generateBar">
+    <button class="btn btn-primary" id="generateBtn">生成 Logo 墙</button>
+    <button class="btn btn-secondary" id="saveToLibBtn" style="background:#667eea22;color:#667eea;border:1px solid #667eea;">存入 Logo 库</button>
+    <button class="btn btn-danger" id="clearAllBtn">清空全部</button>
+  </div>
+
+  <!-- Logo 墙展示 -->
+  <div class="wall-section" id="wallSection">
+    <div class="wall-toolbar">
+      <label>
+        布局
+        <select id="wallLayout">
+          <option value="grid">网格</option>
+          <option value="flex">弹性</option>
+        </select>
+      </label>
+      <label>
+        Logo 大小
+        <input type="range" id="wallSize" min="40" max="120" value="64">
+      </label>
+      <label>
+        间距
+        <input type="range" id="wallGap" min="12" max="60" value="28">
+      </label>
+      <label>
+        背景色
+        <input type="color" id="wallBg" value="#ffffff">
+      </label>
+      <label>
+        <input type="checkbox" id="wallGrayscale"> 灰度
+      </label>
+      <label>
+        <input type="checkbox" id="wallHideNames"> 隐藏名称
+      </label>
+      <div class="wall-toolbar-actions">
+        <button class="btn btn-primary" id="exportBtn">导出图片</button>
+        <button class="btn btn-secondary" id="backEditBtn">返回编辑</button>
+      </div>
+    </div>
+
+    <div class="logo-wall-wrapper" id="wallWrapper">
+      <div class="logo-wall" id="logoWall"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ============ 数据 ============
+  let logoEntries = [];
+
+  // ============ Logo 库 (localStorage 持久化) ============
+  const LIBRARY_KEY = 'logo_wall_library';
+
+  function loadLibrary() {
+    try {
+      const data = localStorage.getItem(LIBRARY_KEY);
+      return data ? JSON.parse(data) : [];
+    } catch(e) { return []; }
+  }
+
+  function saveLibrary(lib) {
+    try {
+      localStorage.setItem(LIBRARY_KEY, JSON.stringify(lib));
+    } catch(e) {
+      alert('存储空间不足，请删除部分Logo后重试');
+    }
+  }
+
+  function addToLibrary(items) {
+    const lib = loadLibrary();
+    items.forEach(item => {
+      // 按名称+图片去重
+      const exists = lib.some(l => l.name === item.name && l.src === item.src);
+      if (!exists) {
+        lib.push({
+          id: Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+          src: item.src,
+          name: item.name || '未命名',
+          category: item.category || '',
+          addedAt: Date.now()
+        });
+      }
+    });
+    saveLibrary(lib);
+    renderLibrary();
+  }
+
+  function removeFromLibrary(ids) {
+    let lib = loadLibrary();
+    lib = lib.filter(item => !ids.includes(item.id));
+    saveLibrary(lib);
+    renderLibrary();
+  }
+
+  // ============ App 类别系统 ============
+  const APP_CATEGORIES = [
+    '社交通讯', '短视频', '电商购物', '金融理财',
+    '出行导航', '外卖配送', '生活服务', '教育学习',
+    '游戏娱乐', '音乐音频', '新闻资讯', '影视视频',
+    '工具效率', '办公协作', '健康医疗', '美食餐饮',
+    '旅游住宿', '拍摄美化', '阅读文学', '房产家居',
+    'AI 人工智能', '运动健身', '汽车服务', '母婴育儿',
+    '其他'
+  ];
+
+  // 常见 App 名称 → 类别映射
+  const APP_NAME_CATEGORY_MAP = {
+    '微信': '社交通讯', 'QQ': '社交通讯', '钉钉': '办公协作', '飞书': '办公协作',
+    '企业微信': '办公协作', '微博': '社交通讯', '小红书': '社交通讯',
+    '抖音': '短视频', '快手': '短视频', '西瓜视频': '影视视频',
+    'B站': '影视视频', '哔哩哔哩': '影视视频', '优酷': '影视视频',
+    '爱奇艺': '影视视频', '腾讯视频': '影视视频', '芒果TV': '影视视频',
+    '淘宝': '电商购物', '天猫': '电商购物', '京东': '电商购物',
+    '拼多多': '电商购物', '唯品会': '电商购物', '闲鱼': '电商购物',
+    '得物': '电商购物', '1688': '电商购物', '一手服装': '电商购物',
+    '朴朴超市': '外卖配送', '朴朴': '外卖配送',
+    '美团': '外卖配送', '饿了么': '外卖配送', '盒马': '外卖配送',
+    '叮咚买菜': '外卖配送', '货拉拉': '出行导航',
+    '货拉拉司机版': '出行导航',
+    '支付宝': '金融理财', '云闪付': '金融理财', '招商银行': '金融理财',
+    '工商银行': '金融理财', '建设银行': '金融理财',
+    '买单吧': '金融理财', '新浪财经': '金融理财',
+    '百度地图': '出行导航', '高德地图': '出行导航', '滴滴出行': '出行导航',
+    '小拉出行': '出行导航', '哈啰': '出行导航', 'T3出行': '出行导航',
+    '自如': '房产家居', '贝壳找房': '房产家居', '链家': '房产家居', '安居客': '房产家居',
+    '知乎': '新闻资讯', '今日头条': '新闻资讯', '网易新闻': '新闻资讯',
+    '腾讯新闻': '新闻资讯',
+    '网易云音乐': '音乐音频', 'QQ音乐': '音乐音频', '酷狗音乐': '音乐音频',
+    '汽水音乐': '音乐音频', '喜马拉雅': '音乐音频',
+    '百度': '工具效率', '夸克': '工具效率', 'UC浏览器': '工具效率',
+    '豆包': 'AI 人工智能', '千问': 'AI 人工智能', '文心一言': 'AI 人工智能',
+    'ChatGPT': 'AI 人工智能', 'Kimi': 'AI 人工智能',
+    '之了课堂': '教育学习', '学而思': '教育学习', '作业帮': '教育学习',
+    '猿辅导': '教育学习', '网易公开课': '教育学习', 'MOOC': '教育学习',
+    '画世界': '拍摄美化', '美图秀秀': '拍摄美化', '醒图': '拍摄美化',
+    '携程': '旅游住宿', '飞猪': '旅游住宿', '去哪儿': '旅游住宿',
+    '同程旅行': '旅游住宿', '马蜂窝': '旅游住宿',
+    '王者荣耀': '游戏娱乐', '和平精英': '游戏娱乐', '原神': '游戏娱乐',
+    '空灵诗篇': '游戏娱乐', '崩坏': '游戏娱乐',
+    '红果短剧': '影视视频',
+    'Keep': '运动健身',
+    '番茄小说': '阅读文学', '微信读书': '阅读文学',
+    '丁香医生': '健康医疗', '平安好医生': '健康医疗',
+    '大众点评': '美食餐饮', '下厨房': '美食餐饮',
+  };
+
+  function matchCategory(name) {
+    if (!name) return '';
+    // 精确匹配
+    if (APP_NAME_CATEGORY_MAP[name]) return APP_NAME_CATEGORY_MAP[name];
+    // 模糊匹配（名称包含关键词）
+    for (const [key, cat] of Object.entries(APP_NAME_CATEGORY_MAP)) {
+      if (name.includes(key) || key.includes(name)) return cat;
+    }
+    return '';
+  }
+
+  // ============ Tab 切换 ============
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  // ============ 模式一：截图裁剪 ============
+  const cropUploadArea = document.getElementById('cropUploadArea');
+  const cropFileInput = document.getElementById('cropFileInput');
+  const cropWorkspace = document.getElementById('cropWorkspace');
+  const cropImage = document.getElementById('cropImage');
+  const cropContainer = document.getElementById('cropContainer');
+  const cropSelectionOverlay = document.getElementById('cropSelectionOverlay');
+  const cropRectEl = document.getElementById('cropRect');
+  const cropList = document.getElementById('cropList');
+  const cropCountEl = document.getElementById('cropCount');
+
+  let cropItems = [];
+  let isCropping = false;
+  let cropStartX = 0, cropStartY = 0;
+
+  cropUploadArea.addEventListener('click', () => cropFileInput.click());
+  setupDragDrop(cropUploadArea, cropFileInput);
+
+  cropFileInput.addEventListener('change', (e) => {
+    if (e.target.files[0]) loadCropImage(e.target.files[0]);
+    e.target.value = '';
+  });
+
+  function loadCropImage(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      cropImage.src = e.target.result;
+      cropImage.onload = () => {
+        cropWorkspace.classList.add('visible');
+        updateGenerateBar();
+      };
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // 框选裁剪 — 用 div 实现选区
+  cropSelectionOverlay.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const containerRect = cropContainer.getBoundingClientRect();
+    cropStartX = e.clientX - containerRect.left;
+    cropStartY = e.clientY - containerRect.top;
+    isCropping = true;
+
+    cropRectEl.style.left = cropStartX + 'px';
+    cropRectEl.style.top = cropStartY + 'px';
+    cropRectEl.style.width = '0px';
+    cropRectEl.style.height = '0px';
+    cropRectEl.style.display = 'block';
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!isCropping) return;
+    e.preventDefault();
+    const containerRect = cropContainer.getBoundingClientRect();
+    const curX = Math.max(0, Math.min(e.clientX - containerRect.left, cropImage.clientWidth));
+    const curY = Math.max(0, Math.min(e.clientY - containerRect.top, cropImage.clientHeight));
+
+    const x = Math.min(cropStartX, curX);
+    const y = Math.min(cropStartY, curY);
+    const w = Math.abs(curX - cropStartX);
+    const h = Math.abs(curY - cropStartY);
+
+    cropRectEl.style.left = x + 'px';
+    cropRectEl.style.top = y + 'px';
+    cropRectEl.style.width = w + 'px';
+    cropRectEl.style.height = h + 'px';
+  });
+
+  document.addEventListener('mouseup', (e) => {
+    if (!isCropping) return;
+    isCropping = false;
+
+    const x = parseInt(cropRectEl.style.left) || 0;
+    const y = parseInt(cropRectEl.style.top) || 0;
+    const w = parseInt(cropRectEl.style.width) || 0;
+    const h = parseInt(cropRectEl.style.height) || 0;
+
+    cropRectEl.style.display = 'none';
+
+    if (w > 10 && h > 10) {
+      extractCropRegion({ x, y, w, h });
+    }
+  });
+
+  function extractCropRegion(rect) {
+    const scaleX = cropImage.naturalWidth / cropImage.clientWidth;
+    const scaleY = cropImage.naturalHeight / cropImage.clientHeight;
+
+    // 裁剪 Logo 图片
+    const canvas = document.createElement('canvas');
+    canvas.width = rect.w * scaleX;
+    canvas.height = rect.h * scaleY;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(cropImage,
+      rect.x * scaleX, rect.y * scaleY, rect.w * scaleX, rect.h * scaleY,
+      0, 0, canvas.width, canvas.height
+    );
+
+    const src = canvas.toDataURL('image/png');
+    const index = cropItems.length;
+    cropItems.push({ src, name: '识别中...', category: '识别中...', ocrDone: false });
+    renderCropList();
+    updateGenerateBar();
+
+    // 取右侧区域做 OCR 识别名称和类别
+    const textX = (rect.x + rect.w) * scaleX;
+    const textY = rect.y * scaleY;
+    const textW = Math.min(rect.w * 3 * scaleX, cropImage.naturalWidth - textX);
+    const textH = rect.h * scaleY;
+
+    if (textW > 10) {
+      const textCanvas = document.createElement('canvas');
+      textCanvas.width = textW;
+      textCanvas.height = textH;
+      const textCtx = textCanvas.getContext('2d');
+      textCtx.drawImage(cropImage, textX, textY, textW, textH, 0, 0, textW, textH);
+
+      // 提高对比度便于 OCR
+      const imageData = textCtx.getImageData(0, 0, textW, textH);
+      const data = imageData.data;
+      for (let i = 0; i < data.length; i += 4) {
+        const gray = data[i] * 0.299 + data[i+1] * 0.587 + data[i+2] * 0.114;
+        const val = gray < 160 ? 0 : 255;
+        data[i] = data[i+1] = data[i+2] = val;
+      }
+      textCtx.putImageData(imageData, 0, 0);
+
+      const textSrc = textCanvas.toDataURL('image/png');
+
+      Tesseract.recognize(textSrc, 'chi_sim+eng', {
+        logger: () => {}
+      }).then(({ data: { text } }) => {
+        const lines = text.trim().split('\n').map(l => l.trim()).filter(l => l);
+
+        // 第一行提取名称
+        let name = lines[0] || '';
+        const nameMatch = name.match(/[\u4e00-\u9fa5a-zA-Z][\u4e00-\u9fa5a-zA-Z0-9\-·\s]*/);
+        if (nameMatch) name = nameMatch[0].trim();
+        const nameParts = name.split(/\s{2,}/);
+        name = nameParts[0].trim();
+
+        // 从所有文本中提取类别（匹配 "xxx > xxx" 格式）
+        let category = '';
+        const fullText = lines.join(' ');
+        const catMatch = fullText.match(/[\u4e00-\u9fa5a-zA-Z]+\s*[>》]\s*[\u4e00-\u9fa5a-zA-Z]+/);
+        if (catMatch) {
+          category = catMatch[0].replace(/\s+/g, ' ').trim();
+        }
+
+        if (index < cropItems.length) {
+          if (name) cropItems[index].name = name;
+          // 优先按名称匹配类别，其次用 OCR 识别的类别
+          const matched = matchCategory(name);
+          cropItems[index].category = matched || category || '';
+          cropItems[index].ocrDone = true;
+          renderCropList();
+        }
+      }).catch(() => {
+        if (index < cropItems.length) {
+          cropItems[index].name = '未命名 Logo';
+          cropItems[index].category = '';
+          cropItems[index].ocrDone = true;
+          renderCropList();
+        }
+      });
+    } else {
+      cropItems[index].name = '未命名 Logo';
+      cropItems[index].category = '';
+      cropItems[index].ocrDone = true;
+      renderCropList();
+    }
+  }
+
+  function renderCropList() {
+    cropCountEl.textContent = cropItems.length;
+    cropList.innerHTML = '';
+    cropItems.forEach((item, i) => {
+      const div = document.createElement('div');
+      div.className = 'crop-item';
+      const statusHtml = item.ocrDone === false
+        ? '<div class="ocr-status">正在识别...</div>'
+        : '';
+      const disabled = item.ocrDone === false ? 'disabled' : '';
+
+      let categoryOptions = '<option value="">选择类别</option>';
+      APP_CATEGORIES.forEach(cat => {
+        const selected = item.category === cat ? 'selected' : '';
+        categoryOptions += `<option value="${cat}" ${selected}>${cat}</option>`;
+      });
+      // 如果 OCR 识别到的类别不在预设列表中，也加入选项
+      if (item.category && !APP_CATEGORIES.includes(item.category)) {
+        categoryOptions += `<option value="${item.category}" selected>${item.category}</option>`;
+      }
+
+      div.innerHTML = `
+        <img src="${item.src}" alt="logo">
+        <input type="text" value="${item.name}" placeholder="Logo 名称" data-index="${i}" data-field="name" ${disabled}>
+        <select data-index="${i}" data-field="category" ${disabled}>${categoryOptions}</select>
+        ${statusHtml}
+        <div class="crop-item-actions">
+          <button class="remove-crop" data-index="${i}">删除</button>
+        </div>
+      `;
+      cropList.appendChild(div);
+    });
+
+    cropList.querySelectorAll('input, select').forEach(el => {
+      el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', (e) => {
+        const idx = e.target.dataset.index;
+        const field = e.target.dataset.field;
+        cropItems[idx][field] = e.target.value;
+        // 如果名称变了，尝试重新匹配类别
+        if (field === 'name') {
+          const matched = matchCategory(e.target.value);
+          if (matched) {
+            cropItems[idx].category = matched;
+            const select = cropList.querySelector(`select[data-index="${idx}"]`);
+            if (select) select.value = matched;
+          }
+        }
+      });
+    });
+    cropList.querySelectorAll('.remove-crop').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        cropItems.splice(e.target.dataset.index, 1);
+        renderCropList();
+        updateGenerateBar();
+      });
+    });
+  }
+
+  // ============ 模式二：直接上传 ============
+  const directUploadArea = document.getElementById('directUploadArea');
+  const directFileInput = document.getElementById('directFileInput');
+  const directGrid = document.getElementById('directGrid');
+  let directItems = [];
+
+  directUploadArea.addEventListener('click', () => directFileInput.click());
+  setupDragDrop(directUploadArea, directFileInput);
+
+  directFileInput.addEventListener('change', (e) => {
+    handleDirectFiles(e.target.files);
+    e.target.value = '';
+  });
+
+  function handleDirectFiles(files) {
+    Array.from(files).filter(f => f.type.startsWith('image/')).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const name = file.name.replace(/\.[^/.]+$/, '');
+        directItems.push({ src: e.target.result, name });
+        renderDirectGrid();
+        updateGenerateBar();
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function renderDirectGrid() {
+    directGrid.innerHTML = '';
+    directItems.forEach((item, i) => {
+      const div = document.createElement('div');
+      div.className = 'direct-item';
+      div.innerHTML = `
+        <img src="${item.src}" alt="logo">
+        <input type="text" value="${item.name}" placeholder="Logo 名称" data-index="${i}">
+        <button class="remove-direct" data-index="${i}">删除</button>
+      `;
+      directGrid.appendChild(div);
+    });
+
+    directGrid.querySelectorAll('input').forEach(input => {
+      input.addEventListener('input', (e) => {
+        directItems[e.target.dataset.index].name = e.target.value;
+      });
+    });
+    directGrid.querySelectorAll('.remove-direct').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        directItems.splice(e.target.dataset.index, 1);
+        renderDirectGrid();
+        updateGenerateBar();
+      });
+    });
+  }
+
+  // ============ 生成 / 清空 ============
+  const generateBar = document.getElementById('generateBar');
+  const generateBtn = document.getElementById('generateBtn');
+  const clearAllBtn = document.getElementById('clearAllBtn');
+  const wallSection = document.getElementById('wallSection');
+
+  function updateGenerateBar() {
+    const count = cropItems.length + directItems.length;
+    generateBar.classList.toggle('visible', count > 0);
+  }
+
+  generateBtn.addEventListener('click', () => {
+    logoEntries = [...cropItems, ...directItems];
+    if (logoEntries.length === 0) return;
+    // 自动存入 Logo 库
+    addToLibrary(logoEntries);
+    renderWall();
+    wallSection.classList.add('visible');
+    wallSection.scrollIntoView({ behavior: 'smooth' });
+  });
+
+  // 仅存入 Logo 库（不生成墙）
+  document.getElementById('saveToLibBtn').addEventListener('click', () => {
+    const items = [...cropItems, ...directItems];
+    if (items.length === 0) return;
+    addToLibrary(items);
+    alert(`已将 ${items.length} 个 Logo 存入库中！`);
+    // 切换到库 tab
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.querySelector('[data-tab="library"]').classList.add('active');
+    document.getElementById('tab-library').classList.add('active');
+  });
+
+  clearAllBtn.addEventListener('click', () => {
+    if (!confirm('确定清空全部 Logo 吗？')) return;
+    cropItems = [];
+    directItems = [];
+    renderCropList();
+    renderDirectGrid();
+    updateGenerateBar();
+    wallSection.classList.remove('visible');
+  });
+
+  document.getElementById('backEditBtn').addEventListener('click', () => {
+    wallSection.classList.remove('visible');
+  });
+
+  // ============ Logo 墙渲染 ============
+  const logoWall = document.getElementById('logoWall');
+  const wallLayout = document.getElementById('wallLayout');
+  const wallSize = document.getElementById('wallSize');
+  const wallGap = document.getElementById('wallGap');
+  const wallBg = document.getElementById('wallBg');
+  const wallGrayscale = document.getElementById('wallGrayscale');
+  const wallHideNames = document.getElementById('wallHideNames');
+
+  function renderWall() {
+    const size = wallSize.value + 'px';
+    const gap = wallGap.value + 'px';
+    const layout = wallLayout.value;
+
+    logoWall.innerHTML = '';
+    logoWall.className = 'logo-wall';
+
+    if (layout === 'grid') {
+      logoWall.style.display = 'grid';
+      logoWall.style.gridTemplateColumns = `repeat(auto-fill, minmax(${parseInt(wallSize.value) + 60}px, 1fr))`;
+      logoWall.style.gap = gap;
+      logoWall.style.flexWrap = '';
+      logoWall.style.justifyContent = '';
+    } else {
+      logoWall.classList.add('layout-flex');
+      logoWall.style.display = 'flex';
+      logoWall.style.gap = gap;
+      logoWall.style.gridTemplateColumns = '';
+    }
+
+    logoWall.style.backgroundColor = wallBg.value;
+
+    if (wallGrayscale.checked) logoWall.classList.add('grayscale');
+    if (wallHideNames.checked) logoWall.classList.add('hide-names');
+
+    logoEntries.forEach(entry => {
+      const div = document.createElement('div');
+      div.className = 'logo-entry';
+
+      const img = document.createElement('img');
+      img.src = entry.src;
+      img.alt = entry.name;
+      img.style.width = size;
+      img.style.height = size;
+
+      const nameEl = document.createElement('div');
+      nameEl.className = 'logo-name';
+      nameEl.textContent = entry.name;
+      nameEl.style.maxWidth = parseInt(wallSize.value) + 40 + 'px';
+
+      div.appendChild(img);
+      div.appendChild(nameEl);
+
+      if (entry.category && entry.category !== '未分类') {
+        const catEl = document.createElement('div');
+        catEl.className = 'logo-category';
+        catEl.textContent = entry.category;
+        catEl.style.maxWidth = parseInt(wallSize.value) + 40 + 'px';
+        div.appendChild(catEl);
+      }
+
+      logoWall.appendChild(div);
+    });
+  }
+
+  wallLayout.addEventListener('change', renderWall);
+  wallSize.addEventListener('input', renderWall);
+  wallGap.addEventListener('input', renderWall);
+  wallBg.addEventListener('input', () => { logoWall.style.backgroundColor = wallBg.value; });
+  wallGrayscale.addEventListener('change', () => {
+    logoWall.classList.toggle('grayscale', wallGrayscale.checked);
+  });
+  wallHideNames.addEventListener('change', () => {
+    logoWall.classList.toggle('hide-names', wallHideNames.checked);
+  });
+
+  // ============ 导出 ============
+  document.getElementById('exportBtn').addEventListener('click', () => {
+    const btn = document.getElementById('exportBtn');
+    btn.textContent = '导出中...';
+    btn.disabled = true;
+
+    const wrapper = document.getElementById('wallWrapper');
+    const rect = wrapper.getBoundingClientRect();
+    const scale = 2;
+    const canvas = document.createElement('canvas');
+    canvas.width = rect.width * scale;
+    canvas.height = rect.height * scale;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(scale, scale);
+    ctx.fillStyle = wallBg.value;
+    ctx.fillRect(0, 0, rect.width, rect.height);
+
+    const entries = document.querySelectorAll('.logo-entry');
+    let loaded = 0;
+    const total = entries.length;
+
+    if (total === 0) {
+      btn.textContent = '导出图片';
+      btn.disabled = false;
+      return;
+    }
+
+    entries.forEach(entry => {
+      const img = entry.querySelector('img');
+      const nameEl = entry.querySelector('.logo-name');
+      const imgRect = img.getBoundingClientRect();
+      const nameRect = nameEl ? nameEl.getBoundingClientRect() : null;
+
+      const image = new Image();
+      image.onload = () => {
+        let dx = imgRect.left - rect.left;
+        let dy = imgRect.top - rect.top;
+
+        if (wallGrayscale.checked) {
+          const tc = document.createElement('canvas');
+          tc.width = imgRect.width * scale;
+          tc.height = imgRect.height * scale;
+          const tctx = tc.getContext('2d');
+          tctx.scale(scale, scale);
+          tctx.filter = 'grayscale(100%)';
+          tctx.drawImage(image, 0, 0, imgRect.width, imgRect.height);
+          ctx.drawImage(tc, dx, dy, imgRect.width, imgRect.height);
+        } else {
+          ctx.drawImage(image, dx, dy, imgRect.width, imgRect.height);
+        }
+
+        if (nameEl && !wallHideNames.checked) {
+          const style = getComputedStyle(nameEl);
+          ctx.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+          ctx.fillStyle = style.color;
+          ctx.textAlign = 'center';
+          const nx = nameRect.left - rect.left + nameRect.width / 2;
+          const ny = nameRect.top - rect.top + parseInt(style.fontSize);
+          ctx.fillText(nameEl.textContent, nx, ny);
+        }
+
+        loaded++;
+        if (loaded === total) {
+          const link = document.createElement('a');
+          link.download = 'logo-wall.png';
+          link.href = canvas.toDataURL('image/png');
+          link.click();
+          btn.textContent = '导出图片';
+          btn.disabled = false;
+        }
+      };
+      image.src = img.src;
+    });
+  });
+
+  // ============ 拖拽通用 ============
+  function setupDragDrop(area, input) {
+    area.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      area.classList.add('dragover');
+    });
+    area.addEventListener('dragleave', () => area.classList.remove('dragover'));
+    area.addEventListener('drop', (e) => {
+      e.preventDefault();
+      area.classList.remove('dragover');
+      if (input === cropFileInput && e.dataTransfer.files[0]) {
+        loadCropImage(e.dataTransfer.files[0]);
+      } else if (input === directFileInput) {
+        handleDirectFiles(e.dataTransfer.files);
+      }
+    });
+  }
+
+  // ============ Logo 库 UI ============
+  const libraryGrid = document.getElementById('libraryGrid');
+  const libraryFilter = document.getElementById('libraryFilter');
+  const libraryCountEl = document.getElementById('libraryCount');
+  let librarySelectedIds = new Set();
+  let libraryCurrentCategory = 'all';
+
+  function renderLibrary() {
+    const lib = loadLibrary();
+    libraryCountEl.textContent = lib.length;
+
+    // 计算每个类别的数量
+    const catCounts = {};
+    lib.forEach(item => {
+      const cat = item.category || '未分类';
+      catCounts[cat] = (catCounts[cat] || 0) + 1;
+    });
+
+    // 渲染标签筛选器
+    libraryFilter.innerHTML = '';
+    const allTag = document.createElement('span');
+    allTag.className = 'filter-tag' + (libraryCurrentCategory === 'all' ? ' active' : '');
+    allTag.dataset.category = 'all';
+    allTag.innerHTML = `全部<span class="tag-count">(${lib.length})</span>`;
+    allTag.addEventListener('click', () => { libraryCurrentCategory = 'all'; renderLibrary(); });
+    libraryFilter.appendChild(allTag);
+
+    // 按数量排序类别
+    const sortedCats = Object.entries(catCounts).sort((a, b) => b[1] - a[1]);
+    sortedCats.forEach(([cat, count]) => {
+      const tag = document.createElement('span');
+      tag.className = 'filter-tag' + (libraryCurrentCategory === cat ? ' active' : '');
+      tag.dataset.category = cat;
+      tag.innerHTML = `${cat}<span class="tag-count">(${count})</span>`;
+      tag.addEventListener('click', () => { libraryCurrentCategory = cat; renderLibrary(); });
+      libraryFilter.appendChild(tag);
+    });
+
+    // 筛选
+    let filtered = lib;
+    if (libraryCurrentCategory !== 'all') {
+      filtered = lib.filter(item => (item.category || '未分类') === libraryCurrentCategory);
+    }
+
+    // 渲染网格
+    libraryGrid.innerHTML = '';
+    if (filtered.length === 0) {
+      libraryGrid.innerHTML = '<div class="library-empty">' +
+        (lib.length === 0 ? 'Logo 库为空，去裁剪或上传 Logo 吧' : '该类别下暂无 Logo') +
+        '</div>';
+      return;
+    }
+
+    // 清理不存在的选中项
+    librarySelectedIds = new Set([...librarySelectedIds].filter(id => lib.some(l => l.id === id)));
+
+    filtered.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'library-item' + (librarySelectedIds.has(item.id) ? ' selected' : '');
+      div.dataset.id = item.id;
+      div.innerHTML = `
+        <div class="lib-check">✓</div>
+        <img src="${item.src}" alt="${item.name}">
+        <div class="lib-name">${item.name}</div>
+        ${item.category ? `<div class="lib-cat">${item.category}</div>` : ''}
+      `;
+      div.addEventListener('click', () => {
+        if (librarySelectedIds.has(item.id)) {
+          librarySelectedIds.delete(item.id);
+          div.classList.remove('selected');
+        } else {
+          librarySelectedIds.add(item.id);
+          div.classList.add('selected');
+        }
+        updateLibraryBtnState();
+      });
+      libraryGrid.appendChild(div);
+    });
+
+    updateLibraryBtnState();
+  }
+
+  function updateLibraryBtnState() {
+    const btn = document.getElementById('libraryGenerateBtn');
+    const count = librarySelectedIds.size;
+    btn.textContent = count > 0 ? `用选中 ${count} 项生成 Logo 墙` : '用选中项生成 Logo 墙';
+    btn.disabled = count === 0;
+    btn.style.opacity = count > 0 ? '1' : '0.5';
+  }
+
+  // 全选
+  document.getElementById('librarySelectAllBtn').addEventListener('click', () => {
+    const lib = loadLibrary();
+    let filtered = lib;
+    if (libraryCurrentCategory !== 'all') {
+      filtered = lib.filter(item => (item.category || '未分类') === libraryCurrentCategory);
+    }
+    const allSelected = filtered.every(item => librarySelectedIds.has(item.id));
+    if (allSelected) {
+      filtered.forEach(item => librarySelectedIds.delete(item.id));
+    } else {
+      filtered.forEach(item => librarySelectedIds.add(item.id));
+    }
+    renderLibrary();
+  });
+
+  // 删除选中
+  document.getElementById('libraryDeleteSelectedBtn').addEventListener('click', () => {
+    if (librarySelectedIds.size === 0) { alert('请先选择要删除的 Logo'); return; }
+    if (!confirm(`确定删除选中的 ${librarySelectedIds.size} 个 Logo 吗？`)) return;
+    removeFromLibrary([...librarySelectedIds]);
+    librarySelectedIds.clear();
+  });
+
+  // 用选中项生成 Logo 墙
+  document.getElementById('libraryGenerateBtn').addEventListener('click', () => {
+    if (librarySelectedIds.size === 0) { alert('请先选择 Logo'); return; }
+    const lib = loadLibrary();
+    logoEntries = lib.filter(item => librarySelectedIds.has(item.id));
+    renderWall();
+    wallSection.classList.add('visible');
+    wallSection.scrollIntoView({ behavior: 'smooth' });
+  });
+
+  // 页面加载时初始化库
+  renderLibrary();
+</script>
+
+</body>
+</html>
