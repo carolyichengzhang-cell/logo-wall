@@ -466,20 +466,63 @@
               if (!cell.contains(img) || name) return;
               imgCellIndex = idx;
 
-              const candidates = cell.querySelectorAll('span, a, div, p, h1, h2, h3, h4, h5, h6, strong, b, em');
-              for (const el of candidates) {
-                const t = el.textContent.trim();
-                if (!t || t.length < 2 || t.length > 30) continue;
-                if (/^\d+$/.test(t)) continue;
-                // 跳过英文公司名
-                if (/^[A-Za-z\s,.()\-]+$/.test(t) && (
-                  /Technology|Ltd|Inc|Co\.|Network|Beijing|Shanghai|Shenzhen|Comp|Limited|Games|Mobile/i.test(t)
-                )) continue;
-                if (/^[A-Za-z\s,.()\-]{20,}$/.test(t)) continue;
-                name = t;
-                break;
+              // 策略：找图片的兄弟或父级中，最近的纯文本名称
+              // 先找 img 的直接父容器的兄弟元素（通常 App 名称在图片旁边）
+              const imgParent = img.closest('div, td, a, span') || img.parentElement;
+              
+              // 方法1：找 img 同级或附近的文本节点
+              // 遍历 cell 的所有 childNodes（包括文本节点），但只取浅层
+              function findNameInContainer(container, depth) {
+                if (depth > 3) return ''; // 限制深度避免找太深
+                for (const child of container.childNodes) {
+                  // 跳过图片本身
+                  if (child === img || child.contains?.(img)) continue;
+                  
+                  const text = (child.textContent || '').trim();
+                  if (!text || text.length < 2) continue;
+                  
+                  // 跳过包含 > ＞ 的文本（这是标签/分类，不是名称）
+                  if (/[>＞→›»]/.test(text)) continue;
+                  // 跳过纯数字
+                  if (/^\d+$/.test(text)) continue;
+                  // 跳过英文公司名
+                  if (/Technology|Ltd|Inc|Co\.|Network|Beijing|Shanghai|Shenzhen|Comp|Limited|Games|Mobile|Entertainment/i.test(text)) continue;
+                  if (/^[A-Za-z\s,.()\-&]{15,}$/.test(text)) continue;
+                  // 跳过中文公司名（含"有限公司"、"科技"等）
+                  if (/有限公司|科技有限|网络科技|信息技术/.test(text)) continue;
+                  
+                  // 找到了名称候选
+                  if (text.length <= 30) {
+                    return text;
+                  }
+                }
+                return '';
               }
-              if (!name && img.alt && img.alt.length >= 2 && img.alt.length <= 30) {
+              
+              // 从图片的各层父容器开始向上找
+              let container = img.parentElement;
+              while (container && container !== cell) {
+                name = findNameInContainer(container, 0);
+                if (name) break;
+                container = container.parentElement;
+              }
+              
+              // 如果还没找到，从 cell 的直接子元素中找
+              if (!name) {
+                for (const child of cell.children) {
+                  if (child.contains(img)) continue;
+                  const text = child.textContent.trim();
+                  if (!text || text.length < 2 || text.length > 30) continue;
+                  if (/[>＞→›»]/.test(text)) continue;
+                  if (/^\d+$/.test(text)) continue;
+                  if (/Technology|Ltd|Inc|Co\.|Network|Limited|Games|有限公司|科技|网络/i.test(text)) continue;
+                  if (/^[A-Za-z\s,.()\-&]{15,}$/.test(text)) continue;
+                  name = text;
+                  break;
+                }
+              }
+              
+              if (!name && img.alt && img.alt.length >= 2 && img.alt.length <= 30 && !/[>＞]/.test(img.alt)) {
                 name = img.alt.trim();
               }
             });
@@ -503,25 +546,46 @@
                 pageCategory = cat.major;
                 pageSubcategory = cat.minor;
               } else if (catText) {
-                // 尝试更宽松的提取：用 innerHTML 中可能有的分隔符
-                // 分类可能被子元素分隔，尝试获取子元素文本拼接
-                const parts = [];
-                catCell.querySelectorAll('span, a, div, em, b, strong, p').forEach(el => {
-                  const t = el.textContent.trim();
-                  if (t && t.length >= 1) parts.push(t);
-                });
-                if (rowIdx < 3) {
-                  console.log('[Logo采集器] 第' + rowIdx + '行 分类子元素:', parts);
-                }
-                // 尝试从子元素中组装分类：找到两个中文短文本，中间可能有分隔
-                if (parts.length >= 2) {
-                  // 找到像 "娱乐" 和 "游戏服务" 这样的一对
-                  for (let i = 0; i < parts.length - 1; i++) {
-                    if (/^[\u4e00-\u9fff\w/]{1,10}$/.test(parts[i]) && /^[\u4e00-\u9fff\w/]{1,15}$/.test(parts[i + 1])) {
-                      pageCategory = parts[i];
-                      pageSubcategory = parts[i + 1];
-                      break;
+                // 分类可能被 HTML 元素分隔（如 <span>娱乐</span><icon/><span>游戏服务</span>）
+                // 获取叶子文本节点
+                const leafTexts = [];
+                function getLeafTexts(node) {
+                  if (node.childNodes.length === 0 || (node.childNodes.length === 1 && node.childNodes[0].nodeType === 3)) {
+                    const t = node.textContent.trim();
+                    if (t && t.length >= 1 && !/^[>＞→›»\s]+$/.test(t)) {
+                      leafTexts.push(t);
                     }
+                    return;
+                  }
+                  node.childNodes.forEach(child => {
+                    if (child.nodeType === 1) getLeafTexts(child); // Element
+                    else if (child.nodeType === 3) { // Text node
+                      const t = child.textContent.trim();
+                      if (t && t.length >= 1 && !/^[>＞→›»\s]+$/.test(t)) {
+                        leafTexts.push(t);
+                      }
+                    }
+                  });
+                }
+                getLeafTexts(catCell);
+                
+                if (rowIdx < 3) {
+                  console.log('[Logo采集器] 第' + rowIdx + '行 分类叶子文本:', leafTexts);
+                }
+                
+                // 从叶子文本中找两个不含 > 的中文文本作为大分类+小分类
+                const cleanParts = leafTexts.filter(t => 
+                  /[\u4e00-\u9fff]/.test(t) && !/[>＞→›»]/.test(t) && t.length <= 15
+                );
+                if (cleanParts.length >= 2) {
+                  pageCategory = cleanParts[0];
+                  pageSubcategory = cleanParts[1];
+                } else if (cleanParts.length === 1) {
+                  // 可能整个分类在一个文本节点里，再尝试按空格分
+                  const sp = cleanParts[0].split(/\s+/);
+                  if (sp.length >= 2) {
+                    pageCategory = sp[0];
+                    pageSubcategory = sp[sp.length - 1];
                   }
                 }
               }
