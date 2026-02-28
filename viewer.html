@@ -556,11 +556,13 @@
         const tx = db.transaction(STORE_NAME, 'readonly');
         const store = tx.objectStore(STORE_NAME);
         const req = store.getAll();
-        req.onsuccess = () => resolve(req.result || []);
-        req.onerror = () => resolve([]);
-        tx.oncomplete = () => db.close();
+        let result = [];
+        req.onsuccess = () => { result = req.result || []; };
+        req.onerror = () => { result = []; };
+        tx.oncomplete = () => { db.close(); resolve(result); };
+        tx.onerror = () => { db.close(); resolve([]); };
       });
-    } catch(e) { return []; }
+    } catch(e) { console.warn('IndexedDB 读取失败:', e); return []; }
   }
 
   // ============ 加载数据 ============
@@ -578,9 +580,52 @@
             allLogos = jsonData;
           }
         }
-      } catch (e) {
-        console.warn('从 JSON 加载失败');
-      }
+      } catch (e) {}
+    }
+
+    // 如果仍然为空，显示导入提示
+    if (allLogos.length === 0) {
+      document.getElementById('loadingState').innerHTML = `
+        <div style="text-align:center;padding:40px 20px;">
+          <p style="font-size:1.1rem;color:#666;margin-bottom:16px;">暂无 Logo 数据</p>
+          <p style="font-size:0.9rem;color:#999;margin-bottom:20px;">请先在 <a href="admin.html" style="color:#667eea;">管理后台</a> 上传 Logo，或直接导入 JSON 数据文件</p>
+          <button id="viewerImportBtn" style="padding:10px 24px;background:#667eea;color:#fff;border:none;border-radius:8px;font-size:0.95rem;cursor:pointer;">📥 导入 JSON 数据</button>
+          <input type="file" id="viewerImportInput" accept=".json" style="display:none;">
+        </div>
+      `;
+      document.getElementById('viewerImportBtn').addEventListener('click', () => {
+        document.getElementById('viewerImportInput').click();
+      });
+      document.getElementById('viewerImportInput').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async (ev) => {
+          try {
+            const data = JSON.parse(ev.target.result);
+            if (!Array.isArray(data) || data.length === 0) { alert('JSON 格式错误或为空'); return; }
+            // 存入 IndexedDB
+            const db = await openDB();
+            const tx = db.transaction(STORE_NAME, 'readwrite');
+            const store = tx.objectStore(STORE_NAME);
+            store.clear();
+            data.forEach((item, i) => {
+              if (!item.id) item.id = Date.now() + '_' + i + '_' + Math.random().toString(36).slice(2,8);
+              if (item.src) store.put(item);
+            });
+            await new Promise((resolve) => { tx.oncomplete = () => { db.close(); resolve(); }; });
+            allLogos = data.filter(item => item.src);
+            document.getElementById('loadingState').style.display = 'none';
+            document.getElementById('mainContent').style.display = 'block';
+            updateStats();
+            buildFilters();
+            applyFilters();
+            alert(`✅ 成功导入 ${allLogos.length} 个 Logo！`);
+          } catch (err) { alert('导入失败: ' + err.message); }
+        };
+        reader.readAsText(file);
+      });
+      return;
     }
 
     document.getElementById('loadingState').style.display = 'none';
