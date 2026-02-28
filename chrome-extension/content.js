@@ -365,10 +365,7 @@
       scan: () => {
         const results = [];
 
-        // 检测文本是否包含分类格式（如 "娱乐 > 游戏服务"、"内容形式 > 用户生成/UGC"）
-        const CATEGORY_PATTERN = /[\u4e00-\u9fff\w]+\s*[>＞→]\s*[\u4e00-\u9fff\w/]+/;
-
-        // 从文本中提取第一个分类
+        // 从文本中提取分类（格式如 "娱乐 > 游戏服务"）
         function extractCategory(text) {
           if (!text) return null;
           const m = text.match(/([\u4e00-\u9fff\w]+)\s*[>＞→]\s*([\u4e00-\u9fff\w/]+)/);
@@ -379,7 +376,24 @@
         // === 策略A：表格行扫描（适配数据表格页面） ===
         const tableRows = document.querySelectorAll('tr, [role="row"], .ant-table-row, .el-table__row');
         if (tableRows.length > 1) {
+          // 第一步：通过表头确定「热门分类」所在的列索引
+          let categoryColIndex = -1;
+          const headerRow = document.querySelector('thead tr, [role="row"]:first-child, .ant-table-thead tr');
+          if (headerRow) {
+            const headerCells = headerRow.querySelectorAll('th, [role="columnheader"], .ant-table-cell');
+            headerCells.forEach((cell, idx) => {
+              const text = cell.textContent.trim();
+              // 匹配"热门分类"、"分类"等列头
+              if (text.includes('热门分类') || text === '分类' || text === '类别') {
+                categoryColIndex = idx;
+              }
+            });
+          }
+
           tableRows.forEach(row => {
+            // 跳过表头行
+            if (row.closest('thead') || row.querySelector('th')) return;
+
             const img = row.querySelector('img');
             if (!img) return;
             const rect = img.getBoundingClientRect();
@@ -390,73 +404,53 @@
             let pageCategory = '';
             let pageSubcategory = '';
 
+            // 提取名称：从包含图片的单元格中取
             cells.forEach((cell, idx) => {
-              const text = cell.textContent.trim();
-              if (!text) return;
+              if (!cell.contains(img) || name) return;
 
-              // 如果该单元格包含图片 → 这是名称列
-              if (cell.contains(img)) {
-                if (name) return; // 已经提取过名称
-                // 只从图片所在单元格提取名称，注意排除分类文本
-                // 方法：找最近的、不含 ">" 的短文本元素
-                const candidates = cell.querySelectorAll('span, a, div, p, h1, h2, h3, h4, h5, h6');
-                for (const el of candidates) {
-                  const t = el.textContent.trim();
-                  if (!t || t.length < 2 || t.length > 30) continue;
-                  // 跳过包含分类格式的文本
-                  if (CATEGORY_PATTERN.test(t)) continue;
-                  // 跳过纯数字
-                  if (/^\d+$/.test(t)) continue;
-                  // 跳过公司名
-                  if (/Technology|Ltd|Inc|Co\.,|Network|Beijing|Shanghai|Shenzhen|Tencent|Alibaba/.test(t)) continue;
-                  // 跳过标签类文本（如 "通用"、"内容..."等短于名称的描述）
-                  // 取第一个看起来像 App 名称的文本
-                  name = t;
-                  break;
-                }
-                // 如果没找到，用 img alt
-                if (!name && img.alt && img.alt.length >= 2 && img.alt.length <= 30 && !CATEGORY_PATTERN.test(img.alt)) {
-                  name = img.alt.trim();
-                }
-                return;
+              // 找图片旁边最像 App 名称的文本
+              // 优先找直接子级或浅层嵌套的短中文文本
+              const candidates = cell.querySelectorAll('span, a, div, p, h1, h2, h3, h4, h5, h6, strong, b, em');
+              for (const el of candidates) {
+                const t = el.textContent.trim();
+                if (!t || t.length < 2 || t.length > 30) continue;
+                if (/^\d+$/.test(t)) continue;
+                // 跳过英文公司名
+                if (/^[A-Za-z\s,.()\-]+$/.test(t) && (
+                  /Technology|Ltd|Inc|Co\.|Network|Beijing|Shanghai|Shenzhen|Comp|Limited/i.test(t)
+                )) continue;
+                // 跳过纯英文长串（公司名）
+                if (/^[A-Za-z\s,.()\-]{20,}$/.test(t)) continue;
+                name = t;
+                break;
               }
-
-              // 非图片单元格：检查是否是分类列
-              const cat = extractCategory(text);
-              if (cat && !pageCategory) {
-                pageCategory = cat.major;
-                pageSubcategory = cat.minor;
-                return;
+              if (!name && img.alt && img.alt.length >= 2 && img.alt.length <= 30) {
+                name = img.alt.trim();
               }
             });
 
-            // 兜底：用 findNearbyName，但同样需要避免混入分类
-            if (!name) {
-              const rawName = findNearbyName(img);
-              if (rawName && !CATEGORY_PATTERN.test(rawName)) {
-                name = rawName;
-              } else if (rawName) {
-                // 从 rawName 中去掉分类部分
-                name = rawName.replace(CATEGORY_PATTERN, '').replace(/\s+/g, ' ').trim();
+            // 提取分类：只从「热门分类」列获取
+            if (categoryColIndex >= 0 && cells[categoryColIndex]) {
+              const catText = cells[categoryColIndex].textContent.trim();
+              const cat = extractCategory(catText);
+              if (cat) {
+                pageCategory = cat.major;
+                pageSubcategory = cat.minor;
               }
             }
 
-            if (name) {
-              // 最终清理：确保名称中没有分类残留
-              if (CATEGORY_PATTERN.test(name)) {
-                name = name.replace(CATEGORY_PATTERN, '').replace(/\s+/g, ' ').trim();
-              }
-              // 去掉末尾的数字（如排名数字）
-              name = name.replace(/\s+\d+$/, '').trim();
+            // 兜底名称
+            if (!name) {
+              name = findNearbyName(img);
+            }
 
-              if (name) {
-                const item = { imgEl: img, name, source: location.hostname };
-                if (pageCategory) {
-                  item.pageCategory = pageCategory;
-                  item.pageSubcategory = pageSubcategory;
-                }
-                results.push(item);
+            if (name) {
+              const item = { imgEl: img, name, source: location.hostname };
+              if (pageCategory) {
+                item.pageCategory = pageCategory;
+                item.pageSubcategory = pageSubcategory;
               }
+              results.push(item);
             }
           });
 
