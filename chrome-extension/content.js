@@ -364,19 +364,111 @@
       match: () => true,
       scan: () => {
         const results = [];
-        const allImages = document.querySelectorAll('img');
 
+        // === 策略A：表格行扫描（适配数据表格页面） ===
+        const tableRows = document.querySelectorAll('tr, [role="row"], .ant-table-row, .el-table__row');
+        if (tableRows.length > 1) {
+          tableRows.forEach(row => {
+            const img = row.querySelector('img');
+            if (!img) return;
+            const rect = img.getBoundingClientRect();
+            if (rect.width < 16 || rect.height < 16 || rect.width > 200) return;
+
+            // 从表格行中提取所有文本单元格
+            const cells = row.querySelectorAll('td, [role="cell"], .ant-table-cell, .el-table__cell');
+            let name = '';
+            let pageCategory = '';
+
+            cells.forEach(cell => {
+              const text = cell.textContent.trim();
+              if (!text) return;
+
+              // 检测分类格式：如 "娱乐 > 游戏服务"、"生活 > 家庭安全"
+              const catMatch = text.match(/^([\u4e00-\u9fff\w]+)\s*[>＞→]\s*([\u4e00-\u9fff\w]+)/);
+              if (catMatch && !pageCategory) {
+                pageCategory = text;
+                return;
+              }
+
+              // 如果该单元格包含图片，从中提取名称
+              if (cell.contains(img) && !name) {
+                // 找图片旁边的文本
+                const textNodes = cell.querySelectorAll('span, a, div, p, h1, h2, h3, h4, h5, h6');
+                for (const tn of textNodes) {
+                  const t = tn.textContent.trim();
+                  if (t && t.length >= 2 && t.length <= 40 && !/^\d+$/.test(t) &&
+                      !t.includes('Technology') && !t.includes('Ltd') && !t.includes('Inc') &&
+                      !t.includes('Co.,') && !t.includes('Network')) {
+                    name = t;
+                    break;
+                  }
+                }
+                // 如果没找到，用 img alt
+                if (!name && img.alt && img.alt.length >= 2 && img.alt.length <= 40) {
+                  name = img.alt.trim();
+                }
+              }
+            });
+
+            if (!name) {
+              name = findNearbyName(img);
+            }
+
+            if (name) {
+              const item = { imgEl: img, name, source: location.hostname };
+              // 解析页面上的分类
+              if (pageCategory) {
+                const parts = pageCategory.split(/\s*[>＞→]\s*/);
+                item.pageCategory = parts[0]?.trim() || '';
+                item.pageSubcategory = parts[1]?.trim() || '';
+              }
+              results.push(item);
+            }
+          });
+
+          if (results.length > 0) return results;
+        }
+
+        // === 策略B：列表/卡片扫描（适配普通网页） ===
+        // 查找带有分类信息的列表容器
+        const listItems = document.querySelectorAll(
+          '.app-item, .app-card, .list-item, .card-item, [class*="app"], [class*="item"]'
+        );
+        if (listItems.length > 2) {
+          listItems.forEach(item => {
+            const img = item.querySelector('img');
+            if (!img) return;
+            const rect = img.getBoundingClientRect();
+            if (rect.width < 20 || rect.height < 20 || rect.width > 200) return;
+
+            const name = findNearbyName(img);
+            if (!name) return;
+
+            const entry = { imgEl: img, name, source: location.hostname };
+
+            // 尝试从容器中提取分类
+            const allText = item.textContent;
+            const catMatch = allText.match(/([\u4e00-\u9fff]+)\s*[>＞→]\s*([\u4e00-\u9fff]+)/);
+            if (catMatch) {
+              entry.pageCategory = catMatch[1].trim();
+              entry.pageSubcategory = catMatch[2].trim();
+            }
+
+            results.push(entry);
+          });
+
+          if (results.length > 0) return results;
+        }
+
+        // === 策略C：全局图片扫描（兜底） ===
+        const allImages = document.querySelectorAll('img');
         allImages.forEach(img => {
-          // 跳过太小或太大的图片
           const rect = img.getBoundingClientRect();
           if (rect.width < 30 || rect.height < 30 || rect.width > 300 || rect.height > 300) return;
-          // 跳过不可见的
           if (rect.width === 0 || rect.height === 0) return;
-          // 宽高比接近 1:1 的（logo 通常是方形）
           const ratio = rect.width / rect.height;
           if (ratio < 0.7 || ratio > 1.4) return;
 
-          // 尝试从周围 DOM 提取名称
           const name = findNearbyName(img);
           if (name) {
             results.push({ imgEl: img, name, source: location.hostname });
@@ -465,11 +557,15 @@
         const cat = matchCategory(item.name);
         const region = guessRegion(item.name);
 
+        // 优先使用页面上提取到的分类，其次用映射表匹配
+        const finalCategory = item.pageCategory || cat.major;
+        const finalSubcategory = item.pageSubcategory || cat.minor;
+
         const logo = {
-          name: item.name,
+          name: cleanAppName(item.name) || item.name,
           src: base64,
-          category: cat.major,
-          subcategory: cat.minor,
+          category: finalCategory,
+          subcategory: finalSubcategory,
           region: region,
           domain: location.hostname,
           source: item.source || location.hostname,
