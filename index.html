@@ -765,8 +765,9 @@
 
 <script>
   // ============ API配置 ============
-  // 请在这里填入您的OpenAI API Key
-  const API_KEY = 'YOUR_OPENAI_API_KEY_HERE';
+  // 使用免费的Gemini API（Google提供，完全免费）
+  // 获取免费API Key: https://aistudio.google.com/app/apikey
+  const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY_HERE';
 
   // ============ 数据 ============
   let logoEntries = [];
@@ -2144,25 +2145,23 @@
       return c.toDataURL('image/png');
     }
 
-    // 使用大模型OCR识别
+    // 使用Gemini免费API进行OCR识别
     if ((nameW > 10 && nameH > 5) || (catW > 10 && catH > 5)) {
       const fullOcrImage = prepareFullOcrCanvas();
       
-      const aiOcrPromise = fetch('https://api.openai.com/v1/chat/completions', {
+      // 将base64图片转换为Gemini API需要的格式
+      const base64Data = fullOcrImage.split(',')[1];
+      
+      const aiOcrPromise = fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${API_KEY}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages: [
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'text',
-                  text: `这是一张App Store截图的一部分，包含App名称和分类标签。请仔细识别图片中的所有文字内容。
+          contents: [{
+            parts: [
+              {
+                text: `这是一张App Store截图的一部分，包含App名称和分类标签。请仔细识别图片中的所有文字内容。
 
 要求：
 1. **App名称**：通常在左侧，可能是中文、英文、日文、韩文等，请准确识别完整名称
@@ -2177,31 +2176,31 @@
 }
 
 注意：只返回JSON，不要有其他说明文字。`
-                },
-                {
-                  type: 'image_url',
-                  image_url: {
-                    url: fullOcrImage,
-                    detail: 'high'
-                  }
+              },
+              {
+                inline_data: {
+                  mime_type: 'image/png',
+                  data: base64Data
                 }
-              ]
-            }
-          ],
-          max_tokens: 500,
-          temperature: 0.1
+              }
+            ]
+          }],
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 500
+          }
         })
       })
       .then(res => res.json())
       .then(data => {
-        console.log('[大模型OCR原始响应]', data);
+        console.log('[Gemini OCR原始响应]', data);
         
         try {
-          const content = data.choices[0].message.content.trim();
+          const content = data.candidates[0].content.parts[0].text.trim();
           // 提取JSON（可能包含在markdown代码块中）
           const jsonMatch = content.match(/\{[\s\S]*\}/);
           if (!jsonMatch) {
-            console.warn('[大模型OCR] 未找到JSON格式');
+            console.warn('[Gemini OCR] 未找到JSON格式');
             return { name: '', categoryText: '' };
           }
           
@@ -2224,12 +2223,12 @@
           
           return { name, ocrCat };
         } catch (e) {
-          console.error('[大模型OCR解析失败]', e);
+          console.error('[Gemini OCR解析失败]', e);
           return { name: '', ocrCat: null };
         }
       })
       .catch(err => {
-        console.error('[大模型OCR请求失败]', err);
+        console.error('[Gemini OCR请求失败]', err);
         return { name: '', ocrCat: null };
       });
 
@@ -2240,7 +2239,7 @@
       Promise.all(ocrPromises).then(results => {
         if (index >= cropItems.length) return;
 
-        // 从大模型OCR结果中提取数据
+        // 从Gemini OCR结果中提取数据
         const result = results[0];
         const name = result.name || '未命名Logo';
         const ocrCat = result.ocrCat;
@@ -2403,22 +2402,19 @@
         renderDirectGrid();
         updateGenerateBar();
 
-        // 使用大模型OCR识别Logo图片中的文字
-        fetch('https://api.openai.com/v1/chat/completions', {
+        // 使用Gemini免费API识别Logo图片中的文字
+        const base64Data = imageSrc.split(',')[1];
+        
+        fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${API_KEY}`
+            'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            model: 'gpt-4o-mini',
-            messages: [
-              {
-                role: 'user',
-                content: [
-                  {
-                    type: 'text',
-                    text: `这是一个App Logo图片。请仔细识别图片中的所有文字内容。
+            contents: [{
+              parts: [
+                {
+                  text: `这是一个App Logo图片。请仔细识别图片中的所有文字内容。
 
 要求：
 1. **Logo中的文字**：可能是App名称、品牌名称，可能是中文、英文、日文、韩文等
@@ -2432,32 +2428,32 @@
 }
 
 注意：只返回JSON，不要有其他说明文字。`
-                  },
-                  {
-                    type: 'image_url',
-                    image_url: {
-                      url: imageSrc,
-                      detail: 'high'
-                    }
+                },
+                {
+                  inline_data: {
+                    mime_type: 'image/png',
+                    data: base64Data
                   }
-                ]
-              }
-            ],
-            max_tokens: 300,
-            temperature: 0.1
+                }
+              ]
+            }],
+            generationConfig: {
+              temperature: 0.1,
+              maxOutputTokens: 300
+            }
           })
         })
         .then(res => res.json())
         .then(data => {
-          console.log('[直接上传大模型OCR原始响应]', data);
+          console.log('[直接上传Gemini OCR原始响应]', data);
           
           try {
             if (index >= directItems.length) return;
             
-            const content = data.choices[0].message.content.trim();
+            const content = data.candidates[0].content.parts[0].text.trim();
             const jsonMatch = content.match(/\{[\s\S]*\}/);
             if (!jsonMatch) {
-              console.warn('[直接上传大模型OCR] 未找到JSON格式，使用文件名');
+              console.warn('[直接上传Gemini OCR] 未找到JSON格式，使用文件名');
               directItems[index].name = fallbackName;
               directItems[index].region = guessRegionByName(fallbackName);
               directItems[index].ocrDone = true;
@@ -2466,7 +2462,7 @@
             }
             
             const result = JSON.parse(jsonMatch[0]);
-            console.log('[直接上传大模型OCR解析结果]', result);
+            console.log('[直接上传Gemini OCR解析结果]', result);
             
             let recognizedText = cleanOcrText(result.text || '');
             
@@ -2488,7 +2484,7 @@
             directItems[index].ocrDone = true;
             renderDirectGrid();
           } catch (e) {
-            console.error('[直接上传大模型OCR解析失败]', e);
+            console.error('[直接上传Gemini OCR解析失败]', e);
             if (index < directItems.length) {
               directItems[index].name = fallbackName;
               directItems[index].region = guessRegionByName(fallbackName);
@@ -2498,7 +2494,7 @@
           }
         })
         .catch(err => {
-          console.error('[直接上传大模型OCR请求失败]', err);
+          console.error('[直接上传Gemini OCR请求失败]', err);
           if (index < directItems.length) {
             directItems[index].name = fallbackName;
             directItems[index].region = guessRegionByName(fallbackName);
