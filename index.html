@@ -764,6 +764,106 @@
 </div>
 
 <script>
+  // ============ 百度OCR配置（使用CORS代理） ============
+  const BAIDU_API_KEY = 'KSZEnVML5zFJu0lHTBxN9v3T';
+  const BAIDU_SECRET_KEY = 'Kbv47OAPZdlRHaY4ROuxRRcfZ1ctM6Dx';
+  const CORS_PROXY = 'https://cors-anywhere.herokuapp.com/';
+  
+  let baiduToken = null;
+  let tokenExpireTime = 0;
+  
+  // 获取百度Access Token
+  async function getBaiduToken() {
+    if (baiduToken && Date.now() < tokenExpireTime) {
+      return baiduToken;
+    }
+    
+    try {
+      const tokenUrl = `${CORS_PROXY}https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials&client_id=${BAIDU_API_KEY}&client_secret=${BAIDU_SECRET_KEY}`;
+      const res = await fetch(tokenUrl, {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      });
+      const data = await res.json();
+      
+      if (data.access_token) {
+        baiduToken = data.access_token;
+        tokenExpireTime = Date.now() + 20 * 24 * 60 * 60 * 1000; // 20天
+        console.log('[百度OCR] Token获取成功');
+        return baiduToken;
+      }
+      throw new Error('Token获取失败');
+    } catch (err) {
+      console.error('[百度OCR] Token获取失败:', err);
+      return null;
+    }
+  }
+  
+  // 百度OCR识别（高精度版）
+  async function baiduOCR(base64Image) {
+    try {
+      const token = await getBaiduToken();
+      if (!token) {
+        console.warn('[百度OCR] Token无效，使用Tesseract降级');
+        return null; // 返回null表示需要降级到Tesseract
+      }
+      
+      const imageData = base64Image.replace(/^data:image\/\w+;base64,/, '');
+      const ocrUrl = `${CORS_PROXY}https://aip.baidubce.com/rest/2.0/ocr/v1/accurate_basic?access_token=${token}`;
+      
+      const formData = new URLSearchParams();
+      formData.append('image', imageData);
+      
+      const res = await fetch(ocrUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: formData
+      });
+      
+      const data = await res.json();
+      
+      if (data.words_result && data.words_result.length > 0) {
+        const text = data.words_result.map(item => item.words).join('\n');
+        console.log('[百度OCR识别成功]', text);
+        return text;
+      }
+      
+      return null;
+    } catch (err) {
+      console.error('[百度OCR失败]', err);
+      return null;
+    }
+  }
+  
+  // 混合OCR策略：优先百度，失败时降级到Tesseract
+  async function hybridOCR(base64Image, mode = '6') {
+    // 先尝试百度OCR
+    const baiduResult = await baiduOCR(base64Image);
+    if (baiduResult) {
+      return baiduResult;
+    }
+    
+    // 百度失败，降级到Tesseract
+    console.log('[OCR降级] 使用Tesseract.js');
+    try {
+      const { data: { text } } = await Tesseract.recognize(
+        base64Image,
+        'chi_sim+eng',
+        {
+          logger: () => {},
+          tessedit_pageseg_mode: mode
+        }
+      );
+      return text;
+    } catch (err) {
+      console.error('[Tesseract OCR失败]', err);
+      return '';
+    }
+  }
+
   // ============ 数据 ============
   let logoEntries = [];
 
@@ -2142,18 +2242,10 @@
         return c.toDataURL('image/png');
       }
 
-      // 使用Tesseract.js OCR识别名称（优化参数）
+      // 使用混合OCR策略识别名称（百度优先，Tesseract降级）
       const nameSrc = prepareNameCanvas(nameX, nameY, nameW, nameH, 4, 160);
 
-      const nameOcrPromise = Tesseract.recognize(
-        nameSrc, 
-        'chi_sim+eng', 
-        { 
-          logger: () => {},
-          tessedit_pageseg_mode: '7', // 单行文本模式
-          preserve_interword_spaces: '0'
-        }
-      ).then(({ data: { text } }) => {
+      const nameOcrPromise = hybridOCR(nameSrc, '7').then(text => {
         console.log('[名称OCR原始文本]', text);
 
         if (!text) return { type: 'name', value: '' };
@@ -2217,18 +2309,10 @@
         return c.toDataURL('image/png');
       }
 
-      // 使用Tesseract.js OCR识别分类（优化参数）
+      // 使用混合OCR策略识别分类（百度优先，Tesseract降级）
       const catSrc = prepareOcrCanvas(catX, catY, catW, catH, 5, 155, true);
 
-      const catOcrPromise = Tesseract.recognize(
-        catSrc,
-        'chi_sim+eng',
-        {
-          logger: () => {},
-          tessedit_pageseg_mode: '6', // 块文本模式
-          preserve_interword_spaces: '0'
-        }
-      ).then(({ data: { text } }) => {
+      const catOcrPromise = hybridOCR(catSrc, '6').then(text => {
         console.log('[分类OCR原始文本]', text);
         
         if (!text) return { type: 'category', value: null };
