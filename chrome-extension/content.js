@@ -389,6 +389,26 @@
         );
 
         if (tableRows.length > 1) {
+          // 获取行的直接子单元格（避免嵌套重复）
+          function getDirectCells(row, isHeader) {
+            // 先尝试直接子元素 td/th
+            let cells = row.querySelectorAll(':scope > td');
+            if (isHeader) cells = row.querySelectorAll(':scope > th');
+            if (cells.length > 0) return cells;
+            // 再尝试直接子元素 [role="cell"] / [role="columnheader"]
+            if (isHeader) {
+              cells = row.querySelectorAll(':scope > [role="columnheader"]');
+            } else {
+              cells = row.querySelectorAll(':scope > [role="cell"]');
+            }
+            if (cells.length > 0) return cells;
+            // 兜底：直接子元素中带 class 的
+            cells = row.querySelectorAll(':scope > .ant-table-cell, :scope > [class*="table-cell"], :scope > [class*="tableCell"]');
+            if (cells.length > 0) return cells;
+            // 最后兜底：所有直接子 div
+            return row.querySelectorAll(':scope > div');
+          }
+
           // 尝试多种方式查找表头
           let categoryColIndex = -1;
           const headerSelectors = [
@@ -403,9 +423,9 @@
           for (const sel of headerSelectors) {
             const headerRow = document.querySelector(sel);
             if (!headerRow) continue;
-            const headerCells = headerRow.querySelectorAll(
-              'th, [role="columnheader"], .ant-table-cell, [class*="table-cell"], [class*="tableCell"]'
-            );
+            const headerCells = getDirectCells(headerRow, true);
+            console.log('[Logo采集器] 表头选择器:', sel, '列数:', headerCells.length,
+              '列名:', Array.from(headerCells).map(c => c.textContent.trim().substring(0, 10)));
             headerCells.forEach((cell, idx) => {
               const text = cell.textContent.trim();
               if (text.includes('热门分类') || text === '分类' || text === '类别' || text === '类型') {
@@ -417,7 +437,7 @@
 
           console.log('[Logo采集器] 表格行数:', tableRows.length, '热门分类列索引:', categoryColIndex);
 
-          tableRows.forEach(row => {
+          tableRows.forEach((row, rowIdx) => {
             // 跳过表头行
             if (row.closest('thead') || row.querySelector('th') || row.querySelector('[role="columnheader"]')) return;
 
@@ -426,10 +446,14 @@
             const rect = img.getBoundingClientRect();
             if (rect.width < 16 || rect.height < 16 || rect.width > 200) return;
 
-            // 获取该行所有单元格（兼容多种实现）
-            const cells = row.querySelectorAll(
-              'td, [role="cell"], .ant-table-cell, [class*="table-cell"], [class*="tableCell"]'
-            );
+            // 用同样的方法获取数据行的直接子单元格
+            const cells = getDirectCells(row, false);
+
+            // 调试：前3行打印详细信息
+            if (rowIdx < 5) {
+              console.log('[Logo采集器] 第' + rowIdx + '行, cells数:', cells.length,
+                '各cell内容:', Array.from(cells).map((c, i) => `[${i}]${c.textContent.trim().substring(0, 20)}`));
+            }
 
             let name = '';
             let pageCategory = '';
