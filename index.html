@@ -767,36 +767,68 @@
   // ============ 百度OCR配置（使用CORS代理） ============
   const BAIDU_API_KEY = 'KSZEnVML5zFJu0lHTBxN9v3T';
   const BAIDU_SECRET_KEY = 'Kbv47OAPZdlRHaY4ROuxRRcfZ1ctM6Dx';
-  const CORS_PROXY = 'https://cors-anywhere.herokuapp.com/';
+  
+  // 尝试多个CORS代理（依次尝试直到成功）
+  const CORS_PROXIES = [
+    'https://api.allorigins.win/raw?url=',
+    'https://corsproxy.io/?',
+    ''  // 最后尝试直接调用（可能会失败但值得一试）
+  ];
   
   let baiduToken = null;
   let tokenExpireTime = 0;
+  let workingProxy = null; // 缓存可用的代理
   
-  // 获取百度Access Token
+  // 获取百度Access Token（尝试多个代理）
   async function getBaiduToken() {
     if (baiduToken && Date.now() < tokenExpireTime) {
       return baiduToken;
     }
     
-    try {
-      const tokenUrl = `${CORS_PROXY}https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials&client_id=${BAIDU_API_KEY}&client_secret=${BAIDU_SECRET_KEY}`;
-      const res = await fetch(tokenUrl, {
-        method: 'POST',
-        headers: { 'X-Requested-With': 'XMLHttpRequest' }
-      });
-      const data = await res.json();
-      
-      if (data.access_token) {
-        baiduToken = data.access_token;
-        tokenExpireTime = Date.now() + 20 * 24 * 60 * 60 * 1000; // 20天
-        console.log('[百度OCR] Token获取成功');
-        return baiduToken;
+    // 如果已经找到可用代理，直接使用
+    if (workingProxy !== null) {
+      try {
+        const baseUrl = 'https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials&client_id=' + BAIDU_API_KEY + '&client_secret=' + BAIDU_SECRET_KEY;
+        const tokenUrl = workingProxy + encodeURIComponent(baseUrl);
+        const res = await fetch(tokenUrl, { method: 'POST' });
+        const data = await res.json();
+        
+        if (data.access_token) {
+          baiduToken = data.access_token;
+          tokenExpireTime = Date.now() + 20 * 24 * 60 * 60 * 1000;
+          console.log('[百度OCR] Token获取成功（使用缓存代理）');
+          return baiduToken;
+        }
+      } catch (err) {
+        console.warn('[百度OCR] 缓存代理失效，尝试其他代理');
+        workingProxy = null;
       }
-      throw new Error('Token获取失败');
-    } catch (err) {
-      console.error('[百度OCR] Token获取失败:', err);
-      return null;
     }
+    
+    // 尝试每个代理
+    for (const proxy of CORS_PROXIES) {
+      try {
+        const baseUrl = 'https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials&client_id=' + BAIDU_API_KEY + '&client_secret=' + BAIDU_SECRET_KEY;
+        const tokenUrl = proxy ? proxy + encodeURIComponent(baseUrl) : baseUrl;
+        
+        console.log(`[百度OCR] 尝试代理: ${proxy || '直连'}`);
+        const res = await fetch(tokenUrl, { method: 'POST' });
+        const data = await res.json();
+        
+        if (data.access_token) {
+          baiduToken = data.access_token;
+          tokenExpireTime = Date.now() + 20 * 24 * 60 * 60 * 1000;
+          workingProxy = proxy; // 缓存可用代理
+          console.log(`[百度OCR] Token获取成功（代理: ${proxy || '直连'}）`);
+          return baiduToken;
+        }
+      } catch (err) {
+        console.warn(`[百度OCR] 代理 ${proxy || '直连'} 失败:`, err);
+      }
+    }
+    
+    console.error('[百度OCR] 所有代理均失败');
+    return null;
   }
   
   // 百度OCR识别（高精度版）
@@ -805,11 +837,12 @@
       const token = await getBaiduToken();
       if (!token) {
         console.warn('[百度OCR] Token无效，使用Tesseract降级');
-        return null; // 返回null表示需要降级到Tesseract
+        return null;
       }
       
       const imageData = base64Image.replace(/^data:image\/\w+;base64,/, '');
-      const ocrUrl = `${CORS_PROXY}https://aip.baidubce.com/rest/2.0/ocr/v1/accurate_basic?access_token=${token}`;
+      const baseUrl = 'https://aip.baidubce.com/rest/2.0/ocr/v1/accurate_basic?access_token=' + token;
+      const ocrUrl = workingProxy ? workingProxy + encodeURIComponent(baseUrl) : baseUrl;
       
       const formData = new URLSearchParams();
       formData.append('image', imageData);
@@ -817,8 +850,7 @@
       const res = await fetch(ocrUrl, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'X-Requested-With': 'XMLHttpRequest'
+          'Content-Type': 'application/x-www-form-urlencoded'
         },
         body: formData
       });
