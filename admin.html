@@ -967,32 +967,63 @@
     if (/[\u4e00-\u9fa5]/.test(name)) return '中国大陆';
     return '';
   }
-  // ============ Logo 库 (localStorage 持久化) ============
-  const LIBRARY_KEY = 'logo_wall_library';
+  // ============ Logo 库 (IndexedDB 持久化，支持大容量存储) ============
+  const DB_NAME = 'logo_wall_db';
+  const DB_VERSION = 1;
+  const STORE_NAME = 'logos';
 
-  function loadLibrary() {
+  function openDB() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+          db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function loadLibrary() {
     try {
-      const data = localStorage.getItem(LIBRARY_KEY);
-      return data ? JSON.parse(data) : [];
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => resolve([]);
+        tx.oncomplete = () => db.close();
+      });
     } catch(e) { return []; }
   }
 
-  function saveLibrary(lib) {
+  async function saveLibrary(lib) {
     try {
-      localStorage.setItem(LIBRARY_KEY, JSON.stringify(lib));
+      const db = await openDB();
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      store.clear();
+      lib.forEach(item => store.put(item));
+      return new Promise((resolve, reject) => {
+        tx.oncomplete = () => { db.close(); resolve(); };
+        tx.onerror = () => { db.close(); reject(tx.error); };
+      });
     } catch(e) {
-      alert('存储空间不足，请删除部分Logo后重试');
+      alert('存储失败: ' + e.message);
     }
   }
 
-  function addToLibrary(items) {
-    const lib = loadLibrary();
+  async function addToLibrary(items) {
+    const lib = await loadLibrary();
+    let added = 0;
     items.forEach(item => {
-      // 按名称+图片去重
       const exists = lib.some(l => l.name === item.name && l.src === item.src);
       if (!exists) {
         lib.push({
-          id: Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+          id: Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '_' + added,
           src: item.src,
           name: item.name || '未命名',
           category: item.category || '',
@@ -1001,17 +1032,36 @@
           region: item.region || '',
           addedAt: Date.now()
         });
+        added++;
       }
     });
-    saveLibrary(lib);
-    renderLibrary();
+    await saveLibrary(lib);
+    await renderLibrary();
   }
 
-  function removeFromLibrary(ids) {
-    let lib = loadLibrary();
+  async function removeFromLibrary(ids) {
+    let lib = await loadLibrary();
     lib = lib.filter(item => !ids.includes(item.id));
-    saveLibrary(lib);
-    renderLibrary();
+    await saveLibrary(lib);
+    await renderLibrary();
+  }
+
+  // 迁移旧 localStorage 数据到 IndexedDB
+  async function migrateFromLocalStorage() {
+    try {
+      const oldData = localStorage.getItem('logo_wall_library');
+      if (oldData) {
+        const items = JSON.parse(oldData);
+        if (items.length > 0) {
+          const lib = await loadLibrary();
+          if (lib.length === 0) {
+            await saveLibrary(items);
+            console.log(`已迁移 ${items.length} 条数据从 localStorage 到 IndexedDB`);
+          }
+          localStorage.removeItem('logo_wall_library');
+        }
+      }
+    } catch(e) { console.warn('迁移失败:', e); }
   }
 
   // ============ App 类别系统（大分类 + 小分类） ============
@@ -2621,21 +2671,21 @@
     generateBar.classList.toggle('visible', count > 0);
   }
 
-  generateBtn.addEventListener('click', () => {
+  generateBtn.addEventListener('click', async () => {
     logoEntries = [...cropItems, ...directItems];
     if (logoEntries.length === 0) return;
     // 自动存入 Logo 库
-    addToLibrary(logoEntries);
+    await addToLibrary(logoEntries);
     renderWall();
     wallSection.classList.add('visible');
     wallSection.scrollIntoView({ behavior: 'smooth' });
   });
 
   // 仅存入 Logo 库（不生成墙）
-  document.getElementById('saveToLibBtn').addEventListener('click', () => {
+  document.getElementById('saveToLibBtn').addEventListener('click', async () => {
     const items = [...cropItems, ...directItems];
     if (items.length === 0) return;
-    addToLibrary(items);
+    await addToLibrary(items);
     alert(`已将 ${items.length} 个 Logo 存入库中！`);
     // 切换到库 tab
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -3147,8 +3197,8 @@
   let librarySelectedIds = new Set();
   let libraryCurrentCategory = 'all';
 
-  function renderLibrary() {
-    const lib = loadLibrary();
+  async function renderLibrary() {
+    const lib = await loadLibrary();
     libraryCountEl.textContent = lib.length;
 
     // 计算每个类别的数量
@@ -3231,8 +3281,8 @@
   }
 
   // 全选
-  document.getElementById('librarySelectAllBtn').addEventListener('click', () => {
-    const lib = loadLibrary();
+  document.getElementById('librarySelectAllBtn').addEventListener('click', async () => {
+    const lib = await loadLibrary();
     let filtered = lib;
     if (libraryCurrentCategory !== 'all') {
       filtered = lib.filter(item => (item.category || '未分类') === libraryCurrentCategory);
@@ -3243,21 +3293,21 @@
     } else {
       filtered.forEach(item => librarySelectedIds.add(item.id));
     }
-    renderLibrary();
+    await renderLibrary();
   });
 
   // 删除选中
-  document.getElementById('libraryDeleteSelectedBtn').addEventListener('click', () => {
+  document.getElementById('libraryDeleteSelectedBtn').addEventListener('click', async () => {
     if (librarySelectedIds.size === 0) { alert('请先选择要删除的 Logo'); return; }
     if (!confirm(`确定删除选中的 ${librarySelectedIds.size} 个 Logo 吗？`)) return;
-    removeFromLibrary([...librarySelectedIds]);
+    await removeFromLibrary([...librarySelectedIds]);
     librarySelectedIds.clear();
   });
 
   // 用选中项生成 Logo 墙
-  document.getElementById('libraryGenerateBtn').addEventListener('click', () => {
+  document.getElementById('libraryGenerateBtn').addEventListener('click', async () => {
     if (librarySelectedIds.size === 0) { alert('请先选择 Logo'); return; }
-    const lib = loadLibrary();
+    const lib = await loadLibrary();
     logoEntries = lib.filter(item => librarySelectedIds.has(item.id));
     renderWall();
     wallSection.classList.add('visible');
@@ -3265,8 +3315,8 @@
   });
 
   // ============ JSON 导出功能（导出数据供浏览页使用） ============
-  document.getElementById('libraryExportJsonBtn').addEventListener('click', () => {
-    const lib = loadLibrary();
+  document.getElementById('libraryExportJsonBtn').addEventListener('click', async () => {
+    const lib = await loadLibrary();
     if (lib.length === 0) {
       alert('Logo 库为空，无法导出');
       return;
@@ -3296,7 +3346,7 @@
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       try {
         let data = JSON.parse(ev.target.result);
         if (!Array.isArray(data)) {
@@ -3317,7 +3367,7 @@
           alert('未找到有效的 Logo 数据');
           return;
         }
-        addToLibrary(items);
+        await addToLibrary(items);
         alert(`✅ 成功导入 ${items.length} 个 Logo 到库中！`);
       } catch (err) {
         alert('JSON 解析失败: ' + err.message);
@@ -3327,8 +3377,11 @@
     jsonImportInput.value = ''; // 重置
   });
 
-  // 页面加载时初始化库
-  renderLibrary();
+  // 页面加载时初始化库（先迁移旧数据）
+  (async () => {
+    await migrateFromLocalStorage();
+    await renderLibrary();
+  })();
 </script>
 
 </body>
