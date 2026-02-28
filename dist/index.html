@@ -764,136 +764,120 @@
 </div>
 
 <script>
-  // ============ 百度OCR配置（使用CORS代理） ============
-  const BAIDU_API_KEY = 'KSZEnVML5zFJu0lHTBxN9v3T';
-  const BAIDU_SECRET_KEY = 'Kbv47OAPZdlRHaY4ROuxRRcfZ1ctM6Dx';
+  // ============ 增强型Tesseract OCR配置 ============
   
-  // 尝试多个CORS代理（依次尝试直到成功）
-  const CORS_PROXIES = [
-    'https://api.allorigins.win/raw?url=',
-    'https://corsproxy.io/?',
-    ''  // 最后尝试直接调用（可能会失败但值得一试）
-  ];
-  
-  let baiduToken = null;
-  let tokenExpireTime = 0;
-  let workingProxy = null; // 缓存可用的代理
-  
-  // 获取百度Access Token（尝试多个代理）
-  async function getBaiduToken() {
-    if (baiduToken && Date.now() < tokenExpireTime) {
-      return baiduToken;
-    }
+  // OCR文本清理和校正（针对常见错误）
+  function enhancedCleanOcrText(text) {
+    if (!text) return '';
     
-    // 如果已经找到可用代理，直接使用
-    if (workingProxy !== null) {
-      try {
-        const baseUrl = 'https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials&client_id=' + BAIDU_API_KEY + '&client_secret=' + BAIDU_SECRET_KEY;
-        const tokenUrl = workingProxy + encodeURIComponent(baseUrl);
-        const res = await fetch(tokenUrl, { method: 'POST' });
-        const data = await res.json();
-        
-        if (data.access_token) {
-          baiduToken = data.access_token;
-          tokenExpireTime = Date.now() + 20 * 24 * 60 * 60 * 1000;
-          console.log('[百度OCR] Token获取成功（使用缓存代理）');
-          return baiduToken;
-        }
-      } catch (err) {
-        console.warn('[百度OCR] 缓存代理失效，尝试其他代理');
-        workingProxy = null;
-      }
-    }
+    // 移除所有空格和特殊符号
+    let cleaned = text.replace(/[\s\n\r]+/g, '');
     
-    // 尝试每个代理
-    for (const proxy of CORS_PROXIES) {
-      try {
-        const baseUrl = 'https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials&client_id=' + BAIDU_API_KEY + '&client_secret=' + BAIDU_SECRET_KEY;
-        const tokenUrl = proxy ? proxy + encodeURIComponent(baseUrl) : baseUrl;
-        
-        console.log(`[百度OCR] 尝试代理: ${proxy || '直连'}`);
-        const res = await fetch(tokenUrl, { method: 'POST' });
-        const data = await res.json();
-        
-        if (data.access_token) {
-          baiduToken = data.access_token;
-          tokenExpireTime = Date.now() + 20 * 24 * 60 * 60 * 1000;
-          workingProxy = proxy; // 缓存可用代理
-          console.log(`[百度OCR] Token获取成功（代理: ${proxy || '直连'}）`);
-          return baiduToken;
-        }
-      } catch (err) {
-        console.warn(`[百度OCR] 代理 ${proxy || '直连'} 失败:`, err);
-      }
-    }
+    // 常见OCR错误修正映射
+    const corrections = {
+      // 数字被识别为字母
+      '0': ['O', 'o', '〇'],
+      '1': ['I', 'l', '|', '！'],
+      '2': ['Z', 'z'],
+      '3': ['B'],
+      '5': ['S', 's'],
+      '8': ['B'],
+      
+      // 字母被识别为符号
+      'I': ['丨', '|'],
+      'O': ['〇'],
+      
+      // 常见中文错误
+      '京': ['亲', '景'],
+      '东': ['东', '车'],
+      '到': ['到', '刭'],
+      '家': ['家', '冢'],
+      '穿': ['穿', '窃'],
+      '越': ['越', '趟'],
+      '火': ['火', '灬'],
+      '线': ['线', '钱'],
+      '麦': ['麦', '妻'],
+      '德': ['德', '徳'],
+      '龙': ['龙', '尤'],
+      '猎': ['猎', '借'],
+      '游': ['游', '旒'],
+      '好': ['好', '奵'],
+      '大': ['大', '太'],
+      '任': ['任', '住'],
+      '务': ['务', '勿'],
+    };
     
-    console.error('[百度OCR] 所有代理均失败');
-    return null;
-  }
-  
-  // 百度OCR识别（高精度版）
-  async function baiduOCR(base64Image) {
-    try {
-      const token = await getBaiduToken();
-      if (!token) {
-        console.warn('[百度OCR] Token无效，使用Tesseract降级');
-        return null;
-      }
-      
-      const imageData = base64Image.replace(/^data:image\/\w+;base64,/, '');
-      const baseUrl = 'https://aip.baidubce.com/rest/2.0/ocr/v1/accurate_basic?access_token=' + token;
-      const ocrUrl = workingProxy ? workingProxy + encodeURIComponent(baseUrl) : baseUrl;
-      
-      const formData = new URLSearchParams();
-      formData.append('image', imageData);
-      
-      const res = await fetch(ocrUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        body: formData
+    // 应用修正规则
+    for (const [correct, wrongs] of Object.entries(corrections)) {
+      wrongs.forEach(wrong => {
+        cleaned = cleaned.replace(new RegExp(wrong, 'g'), correct);
       });
-      
-      const data = await res.json();
-      
-      if (data.words_result && data.words_result.length > 0) {
-        const text = data.words_result.map(item => item.words).join('\n');
-        console.log('[百度OCR识别成功]', text);
-        return text;
-      }
-      
-      return null;
-    } catch (err) {
-      console.error('[百度OCR失败]', err);
-      return null;
-    }
-  }
-  
-  // 混合OCR策略：优先百度，失败时降级到Tesseract
-  async function hybridOCR(base64Image, mode = '6') {
-    // 先尝试百度OCR
-    const baiduResult = await baiduOCR(base64Image);
-    if (baiduResult) {
-      return baiduResult;
     }
     
-    // 百度失败，降级到Tesseract
-    console.log('[OCR降级] 使用Tesseract.js');
+    return cleaned;
+  }
+  
+  // 增强型OCR识别（多次尝试取最佳结果）
+  async function enhancedOCR(base64Image, mode = '6') {
+    const results = [];
+    
+    // 策略1：标准识别
     try {
-      const { data: { text } } = await Tesseract.recognize(
+      const { data: { text, confidence } } = await Tesseract.recognize(
         base64Image,
         'chi_sim+eng',
         {
           logger: () => {},
-          tessedit_pageseg_mode: mode
+          tessedit_pageseg_mode: mode,
+          tessedit_char_whitelist: '', // 不限制字符
         }
       );
-      return text;
+      results.push({ text, confidence: confidence || 0, strategy: 'standard' });
+      console.log('[OCR策略1-标准]', text, 'confidence:', confidence);
     } catch (err) {
-      console.error('[Tesseract OCR失败]', err);
+      console.warn('[OCR策略1失败]', err);
+    }
+    
+    // 策略2：仅中文模式
+    try {
+      const { data: { text, confidence } } = await Tesseract.recognize(
+        base64Image,
+        'chi_sim',
+        {
+          logger: () => {},
+          tessedit_pageseg_mode: mode,
+        }
+      );
+      results.push({ text, confidence: confidence || 0, strategy: 'chinese-only' });
+      console.log('[OCR策略2-纯中文]', text, 'confidence:', confidence);
+    } catch (err) {
+      console.warn('[OCR策略2失败]', err);
+    }
+    
+    if (results.length === 0) {
       return '';
     }
+    
+    // 选择最佳结果（优先考虑置信度，其次考虑文本长度）
+    results.sort((a, b) => {
+      // 优先选择有实际内容的结果
+      const aLen = a.text.trim().length;
+      const bLen = b.text.trim().length;
+      if (aLen === 0 && bLen > 0) return 1;
+      if (bLen === 0 && aLen > 0) return -1;
+      
+      // 置信度权重
+      const confDiff = b.confidence - a.confidence;
+      if (Math.abs(confDiff) > 10) return confDiff;
+      
+      // 长度权重（更长的通常更完整）
+      return bLen - aLen;
+    });
+    
+    const best = results[0];
+    console.log('[OCR最佳结果]', best.strategy, best.text);
+    
+    return best.text;
   }
 
   // ============ 数据 ============
@@ -2274,10 +2258,10 @@
         return c.toDataURL('image/png');
       }
 
-      // 使用混合OCR策略识别名称（百度优先，Tesseract降级）
+      // 使用增强型OCR识别名称
       const nameSrc = prepareNameCanvas(nameX, nameY, nameW, nameH, 4, 160);
 
-      const nameOcrPromise = hybridOCR(nameSrc, '7').then(text => {
+      const nameOcrPromise = enhancedOCR(nameSrc, '7').then(text => {
         console.log('[名称OCR原始文本]', text);
 
         if (!text) return { type: 'name', value: '' };
@@ -2298,7 +2282,7 @@
         if (name.length > 8) {
           name = name.substring(0, 8);
         }
-        name = correctOcrName(name);
+        name = enhancedCleanOcrText(name); // 使用增强清理
         
         return { type: 'name', value: name };
       }).catch(() => ({ type: 'name', value: '' }));
@@ -2341,10 +2325,10 @@
         return c.toDataURL('image/png');
       }
 
-      // 使用混合OCR策略识别分类（百度优先，Tesseract降级）
+      // 使用增强型OCR识别分类
       const catSrc = prepareOcrCanvas(catX, catY, catW, catH, 5, 155, true);
 
-      const catOcrPromise = hybridOCR(catSrc, '6').then(text => {
+      const catOcrPromise = enhancedOCR(catSrc, '6').then(text => {
         console.log('[分类OCR原始文本]', text);
         
         if (!text) return { type: 'category', value: null };
