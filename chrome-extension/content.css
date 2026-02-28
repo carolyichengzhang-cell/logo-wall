@@ -90,9 +90,31 @@
   color: #fff;
 }
 
+.logo-collector-btn-scroll {
+  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+  color: #fff;
+}
+
+.logo-collector-btn-select {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  color: #fff;
+}
+
 .logo-collector-btn-stop {
   background: #ff4d4f;
   color: #fff;
+}
+
+/* 激活状态：按钮加脉动动画 */
+.logo-collector-btn-active {
+  animation: logo-collector-pulse 1.5s infinite;
+  box-shadow: 0 0 0 0 rgba(102, 126, 234, 0.4) !important;
+}
+
+@keyframes logo-collector-pulse {
+  0% { box-shadow: 0 4px 12px rgba(0,0,0,0.2), 0 0 0 0 rgba(102,126,234,0.5); }
+  50% { box-shadow: 0 4px 12px rgba(0,0,0,0.2), 0 0 0 8px rgba(102,126,234,0); }
+  100% { box-shadow: 0 4px 12px rgba(0,0,0,0.2), 0 0 0 0 rgba(102,126,234,0); }
 }
 
 /* Toast 通知 */

@@ -773,6 +773,298 @@
     updatePanel();
   }
 
+  // ========== 滚动自动采集模式 ==========
+  let isScrollWatching = false;
+  let scrollObserver = null;
+  let scrollDebounceTimer = null;
+  let collectedImgSrcs = new Set(); // 记录已采集的图片 src 避免重复
+
+  function startScrollWatch() {
+    if (isScrollWatching) return;
+    isScrollWatching = true;
+    
+    // 初始化已采集图片集合
+    sessionLogos.forEach(l => collectedImgSrcs.add(l.name));
+    
+    showToast('📜 滚动采集模式已开启，滚动页面自动采集新出现的 Logo', 3000);
+    
+    // 先扫描当前可见区域
+    scrollScanVisible();
+    
+    // 监听滚动事件（防抖）
+    window.addEventListener('scroll', onScrollForCollect, { passive: true });
+    
+    // 同时用 MutationObserver 监听 DOM 变化（翻页/动态加载）
+    scrollObserver = new MutationObserver(() => {
+      clearTimeout(scrollDebounceTimer);
+      scrollDebounceTimer = setTimeout(scrollScanVisible, 500);
+    });
+    scrollObserver.observe(document.body, { childList: true, subtree: true });
+  }
+
+  function stopScrollWatch() {
+    if (!isScrollWatching) return;
+    isScrollWatching = false;
+    
+    window.removeEventListener('scroll', onScrollForCollect);
+    if (scrollObserver) {
+      scrollObserver.disconnect();
+      scrollObserver = null;
+    }
+    clearTimeout(scrollDebounceTimer);
+    
+    showToast('📜 滚动采集模式已关闭');
+  }
+
+  function onScrollForCollect() {
+    clearTimeout(scrollDebounceTimer);
+    scrollDebounceTimer = setTimeout(scrollScanVisible, 300);
+  }
+
+  async function scrollScanVisible() {
+    if (!isScrollWatching) return;
+    
+    // 用通用适配器扫描当前页面
+    let results = [];
+    for (const [name, adapter] of Object.entries(siteAdapters)) {
+      if (name === 'generic') continue;
+      if (adapter.match()) {
+        results = adapter.scan();
+        if (results.length > 0) break;
+      }
+    }
+    if (results.length === 0) {
+      results = siteAdapters.generic.scan();
+    }
+    
+    // 只处理在可视区域内的、未采集过的
+    const viewportHeight = window.innerHeight;
+    let newCount = 0;
+    
+    for (const item of results) {
+      // 检查是否在可视区域
+      const rect = item.imgEl.getBoundingClientRect();
+      if (rect.bottom < 0 || rect.top > viewportHeight) continue;
+      
+      // 检查是否已采集
+      const itemName = cleanAppName(item.name) || item.name;
+      if (collectedImgSrcs.has(itemName)) continue;
+      
+      try {
+        const imgSrc = item.imgEl.src || item.imgEl.currentSrc;
+        if (!imgSrc) continue;
+        
+        const base64 = await imgUrlToBase64(imgSrc);
+        const cat = matchCategory(item.name);
+        const region = guessRegion(item.name);
+        
+        const finalCategory = item.pageCategory || cat.major;
+        const finalSubcategory = item.pageSubcategory || cat.minor;
+        
+        const logo = {
+          name: itemName,
+          src: base64,
+          category: finalCategory,
+          subcategory: finalSubcategory,
+          region: region,
+          domain: location.hostname,
+          source: item.source || location.hostname,
+          pageUrl: location.href,
+          pageTitle: document.title
+        };
+        
+        const exists = sessionLogos.some(l => l.name === logo.name);
+        if (!exists) {
+          sessionLogos.push(logo);
+          collectedImgSrcs.add(itemName);
+          item.imgEl.classList.add('logo-collector-collected');
+          newCount++;
+        }
+      } catch (e) {
+        // 静默忽略
+      }
+    }
+    
+    if (newCount > 0) {
+      chrome.runtime.sendMessage({
+        action: 'addLogos',
+        data: { logos: sessionLogos }
+      });
+      showToast(`📜 新采集 ${newCount} 个 Logo（共 ${sessionLogos.length} 个）`, 2000);
+      updatePanel();
+    }
+  }
+
+  // ========== 框选区域采集模式 ==========
+  let isSelecting = false;
+  let selectionBox = null;
+  let selStartX = 0, selStartY = 0;
+
+  function startSelectMode() {
+    if (isSelecting) return;
+    isSelecting = true;
+    
+    showToast('🔲 框选模式：按住鼠标拖拽选择区域，松开后自动采集区域内的 Logo，按 ESC 退出', 4000);
+    
+    // 创建选择框
+    selectionBox = document.createElement('div');
+    selectionBox.id = 'logo-collector-selection-box';
+    selectionBox.style.cssText = `
+      position: fixed; border: 2px dashed #667eea; background: rgba(102,126,234,0.08);
+      pointer-events: none; z-index: 2147483645; display: none; border-radius: 4px;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,0.15);
+    `;
+    document.body.appendChild(selectionBox);
+    
+    document.addEventListener('mousedown', onSelectMouseDown, true);
+    document.addEventListener('keydown', onSelectKeyDown, true);
+  }
+
+  function stopSelectMode() {
+    if (!isSelecting) return;
+    isSelecting = false;
+    
+    document.removeEventListener('mousedown', onSelectMouseDown, true);
+    document.removeEventListener('mousemove', onSelectMouseMove, true);
+    document.removeEventListener('mouseup', onSelectMouseUp, true);
+    document.removeEventListener('keydown', onSelectKeyDown, true);
+    
+    if (selectionBox) {
+      selectionBox.remove();
+      selectionBox = null;
+    }
+    
+    showToast('已退出框选模式');
+  }
+
+  function onSelectMouseDown(e) {
+    if (e.target.closest('#logo-collector-toolbar') || e.target.closest('#logo-collector-panel')) return;
+    if (e.button !== 0) return; // 只响应左键
+    
+    e.preventDefault();
+    selStartX = e.clientX;
+    selStartY = e.clientY;
+    
+    selectionBox.style.left = selStartX + 'px';
+    selectionBox.style.top = selStartY + 'px';
+    selectionBox.style.width = '0px';
+    selectionBox.style.height = '0px';
+    selectionBox.style.display = 'block';
+    
+    document.addEventListener('mousemove', onSelectMouseMove, true);
+    document.addEventListener('mouseup', onSelectMouseUp, true);
+  }
+
+  function onSelectMouseMove(e) {
+    e.preventDefault();
+    const x = Math.min(e.clientX, selStartX);
+    const y = Math.min(e.clientY, selStartY);
+    const w = Math.abs(e.clientX - selStartX);
+    const h = Math.abs(e.clientY - selStartY);
+    
+    selectionBox.style.left = x + 'px';
+    selectionBox.style.top = y + 'px';
+    selectionBox.style.width = w + 'px';
+    selectionBox.style.height = h + 'px';
+  }
+
+  async function onSelectMouseUp(e) {
+    document.removeEventListener('mousemove', onSelectMouseMove, true);
+    document.removeEventListener('mouseup', onSelectMouseUp, true);
+    
+    const selRect = {
+      left: Math.min(e.clientX, selStartX),
+      top: Math.min(e.clientY, selStartY),
+      right: Math.max(e.clientX, selStartX),
+      bottom: Math.max(e.clientY, selStartY)
+    };
+    
+    // 选区太小则忽略
+    if (selRect.right - selRect.left < 20 || selRect.bottom - selRect.top < 20) {
+      selectionBox.style.display = 'none';
+      return;
+    }
+    
+    showToast('🔲 正在采集框选区域内的 Logo...');
+    
+    // 扫描所有 Logo
+    let results = [];
+    for (const [name, adapter] of Object.entries(siteAdapters)) {
+      if (name === 'generic') continue;
+      if (adapter.match()) {
+        results = adapter.scan();
+        if (results.length > 0) break;
+      }
+    }
+    if (results.length === 0) {
+      results = siteAdapters.generic.scan();
+    }
+    
+    // 只采集图片中心点在框选区域内的
+    let newCount = 0;
+    for (const item of results) {
+      const rect = item.imgEl.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      
+      if (centerX < selRect.left || centerX > selRect.right || 
+          centerY < selRect.top || centerY > selRect.bottom) continue;
+      
+      const itemName = cleanAppName(item.name) || item.name;
+      const exists = sessionLogos.some(l => l.name === itemName);
+      if (exists) continue;
+      
+      try {
+        const imgSrc = item.imgEl.src || item.imgEl.currentSrc;
+        if (!imgSrc) continue;
+        
+        const base64 = await imgUrlToBase64(imgSrc);
+        const cat = matchCategory(item.name);
+        const region = guessRegion(item.name);
+        
+        const finalCategory = item.pageCategory || cat.major;
+        const finalSubcategory = item.pageSubcategory || cat.minor;
+        
+        const logo = {
+          name: itemName,
+          src: base64,
+          category: finalCategory,
+          subcategory: finalSubcategory,
+          region: region,
+          domain: location.hostname,
+          source: item.source || location.hostname,
+          pageUrl: location.href,
+          pageTitle: document.title
+        };
+        
+        sessionLogos.push(logo);
+        item.imgEl.classList.add('logo-collector-collected');
+        newCount++;
+      } catch (e) {
+        // 静默忽略
+      }
+    }
+    
+    selectionBox.style.display = 'none';
+    
+    if (newCount > 0) {
+      chrome.runtime.sendMessage({
+        action: 'addLogos',
+        data: { logos: sessionLogos }
+      });
+      showToast(`🔲 框选采集 ${newCount} 个 Logo（共 ${sessionLogos.length} 个）`, 3000);
+      updatePanel();
+    } else {
+      showToast('🔲 框选区域内未找到新的 Logo', 2000);
+    }
+  }
+
+  function onSelectKeyDown(e) {
+    if (e.key === 'Escape') {
+      stopSelectMode();
+    }
+  }
+
   // ========== 手动点选模式 ==========
   let hoverTarget = null;
 
@@ -883,27 +1175,51 @@
     toolbar = document.createElement('div');
     toolbar.id = 'logo-collector-toolbar';
     toolbar.innerHTML = `
-      <button class="logo-collector-btn-scan" title="自动扫描 Logo">🔍</button>
+      <button class="logo-collector-btn-scan" title="自动扫描当前页面">🔍</button>
+      <button class="logo-collector-btn-scroll" title="滚动自动采集（边滚边采）">📜</button>
+      <button class="logo-collector-btn-select" title="框选区域采集">🔲</button>
       <button class="logo-collector-btn-pick" title="手动点选 Logo">🎯</button>
     `;
 
-    const [scanBtn, pickBtn] = toolbar.querySelectorAll('button');
+    const [scanBtn, scrollBtn, selectBtn, pickBtn] = toolbar.querySelectorAll('button');
 
     scanBtn.addEventListener('click', () => {
       autoScan();
     });
 
+    scrollBtn.addEventListener('click', () => {
+      if (isScrollWatching) {
+        stopScrollWatch();
+        scrollBtn.classList.remove('logo-collector-btn-active');
+        scrollBtn.title = '滚动自动采集（边滚边采）';
+      } else {
+        startScrollWatch();
+        scrollBtn.classList.add('logo-collector-btn-active');
+        scrollBtn.title = '停止滚动采集';
+      }
+    });
+
+    selectBtn.addEventListener('click', () => {
+      if (isSelecting) {
+        stopSelectMode();
+        selectBtn.classList.remove('logo-collector-btn-active');
+        selectBtn.title = '框选区域采集';
+      } else {
+        startSelectMode();
+        selectBtn.classList.add('logo-collector-btn-active');
+        selectBtn.title = '退出框选模式';
+      }
+    });
+
     pickBtn.addEventListener('click', () => {
       if (isPicking) {
         stopPickMode();
-        pickBtn.classList.remove('logo-collector-btn-stop');
-        pickBtn.classList.add('logo-collector-btn-pick');
+        pickBtn.classList.remove('logo-collector-btn-active');
         pickBtn.textContent = '🎯';
         pickBtn.title = '手动点选 Logo';
       } else {
         startPickMode();
-        pickBtn.classList.remove('logo-collector-btn-pick');
-        pickBtn.classList.add('logo-collector-btn-stop');
+        pickBtn.classList.add('logo-collector-btn-active');
         pickBtn.textContent = '⏹';
         pickBtn.title = '停止点选';
       }
@@ -980,16 +1296,34 @@
 
       case 'startPick':
         createToolbar();
-        if (!isPicking) {
-          startPickMode();
-        }
+        if (!isPicking) startPickMode();
         sendResponse({ success: true });
         break;
 
       case 'stopPick':
-        if (isPicking) {
-          stopPickMode();
-        }
+        if (isPicking) stopPickMode();
+        sendResponse({ success: true });
+        break;
+
+      case 'startScrollWatch':
+        createToolbar();
+        startScrollWatch();
+        sendResponse({ success: true });
+        break;
+
+      case 'stopScrollWatch':
+        stopScrollWatch();
+        sendResponse({ success: true });
+        break;
+
+      case 'startSelect':
+        createToolbar();
+        startSelectMode();
+        sendResponse({ success: true });
+        break;
+
+      case 'stopSelect':
+        stopSelectMode();
         sendResponse({ success: true });
         break;
 
