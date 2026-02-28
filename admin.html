@@ -1,0 +1,3335 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Logo 墙管理后台</title>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f0f2f5;
+      min-height: 100vh;
+      color: #333;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 36px 20px;
+      text-align: center;
+      color: #fff;
+    }
+    .header h1 { font-size: 2rem; font-weight: 700; margin-bottom: 6px; }
+    .header p { font-size: 0.95rem; opacity: 0.85; }
+
+    .container { max-width: 1200px; margin: 0 auto; padding: 28px 20px; }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 0;
+      margin-bottom: 24px;
+      background: #fff;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 14px;
+      border: none;
+      background: #fff;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #888;
+      cursor: pointer;
+      transition: all 0.2s;
+      border-bottom: 3px solid transparent;
+    }
+    .tab-btn.active {
+      color: #667eea;
+      border-bottom-color: #667eea;
+      background: #f8f9ff;
+    }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* 通用卡片 */
+    .card {
+      background: #fff;
+      border-radius: 14px;
+      padding: 28px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+      margin-bottom: 24px;
+    }
+    .card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 16px; color: #444; }
+
+    /* 上传区域 */
+    .upload-area {
+      border: 2px dashed #c4c9d4;
+      border-radius: 12px;
+      padding: 44px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s;
+      background: #fafbfc;
+    }
+    .upload-area:hover, .upload-area.dragover {
+      border-color: #667eea;
+      background: #f0f1ff;
+    }
+    .upload-area svg { width: 42px; height: 42px; color: #667eea; margin-bottom: 12px; }
+    .upload-area h3 { font-size: 1.05rem; margin-bottom: 4px; color: #444; }
+    .upload-area p { font-size: 0.85rem; color: #999; }
+    .upload-area input { display: none; }
+
+    /* 截图裁剪模式 */
+    .crop-workspace {
+      display: none;
+      margin-top: 20px;
+    }
+    .crop-workspace.visible { display: block; }
+
+    .crop-canvas-container {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid #e0e0e0;
+      border-radius: 10px;
+      background: #f9f9f9;
+      cursor: crosshair;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .crop-canvas-container img {
+      display: block;
+      max-width: 100%;
+      -webkit-user-drag: none;
+      user-select: none;
+      pointer-events: none;
+    }
+
+    .crop-selection-overlay {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 10;
+    }
+
+    .crop-rect {
+      position: absolute;
+      border: 2px dashed #667eea;
+      background: rgba(102,126,234,0.15);
+      pointer-events: none;
+      z-index: 11;
+      display: none;
+    }
+
+    .crop-instructions {
+      margin: 12px 0;
+      padding: 12px 16px;
+      background: #fff8e6;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      color: #8a6d00;
+      line-height: 1.6;
+    }
+
+    /* 裁剪列表 */
+    .crop-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+    .crop-item {
+      background: #fafbfc;
+      border: 1px solid #eee;
+      border-radius: 10px;
+      padding: 12px;
+      text-align: center;
+    }
+    .crop-item img {
+      width: 72px;
+      height: 72px;
+      object-fit: contain;
+      border-radius: 14px;
+      margin-bottom: 8px;
+      background: #fff;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+    .crop-item input {
+      width: 100%;
+      padding: 6px 10px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      text-align: center;
+      outline: none;
+    }
+    .crop-item input:focus { border-color: #667eea; }
+    .crop-item select {
+      width: 100%;
+      padding: 5px 8px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      text-align: center;
+      outline: none;
+      color: #667eea;
+      background: #fff;
+      cursor: pointer;
+      margin-top: 4px;
+    }
+    .crop-item select:focus { border-color: #667eea; }
+    .crop-item .category-group {
+      display: flex;
+      gap: 4px;
+      margin-top: 4px;
+    }
+    .crop-item .category-group select {
+      flex: 1;
+      margin-top: 0;
+      font-size: 0.78rem;
+      padding: 4px 4px;
+    }
+    .category-tag {
+      display: inline-block;
+      font-size: 0.72rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin: 1px;
+    }
+    .category-tag.major {
+      background: #667eea22;
+      color: #667eea;
+    }
+    .category-tag.minor {
+      background: #764ba222;
+      color: #764ba2;
+    }
+    .crop-item .crop-item-actions {
+      margin-top: 6px;
+    }
+    .crop-item .remove-crop {
+      background: none;
+      border: none;
+      color: #ff4d4f;
+      cursor: pointer;
+      font-size: 0.82rem;
+    }
+    .crop-item .ocr-status {
+      font-size: 0.78rem;
+      color: #667eea;
+      margin-top: 4px;
+    }
+
+    /* 批量设置面板 */
+    .batch-settings {
+      background: linear-gradient(135deg, #f8f9ff 0%, #f0f1ff 100%);
+      border: 2px solid #e0e3ff;
+      border-radius: 14px;
+      padding: 20px 24px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 10px rgba(102,126,234,0.08);
+    }
+    .batch-settings-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #444;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .batch-settings-title::before {
+      content: '⚙️';
+      font-size: 1.1rem;
+    }
+    .batch-settings-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .batch-settings-row:last-child { margin-bottom: 0; }
+    .batch-settings-row label {
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: #555;
+      white-space: nowrap;
+      min-width: 70px;
+    }
+    .product-options, .region-options {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .product-btn, .region-btn {
+      padding: 6px 16px;
+      border: 2px solid #ddd;
+      border-radius: 20px;
+      background: #fff;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      color: #666;
+    }
+    .product-btn:hover, .region-btn:hover { border-color: #667eea; color: #667eea; }
+    .product-btn.active {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: #fff;
+      border-color: transparent;
+    }
+    .region-btn.active {
+      background: linear-gradient(135deg, #52c41a, #389e0d);
+      color: #fff;
+      border-color: transparent;
+    }
+
+    /* 产品/地区标签 */
+    .tag-group {
+      display: flex;
+      gap: 4px;
+      margin-top: 4px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .tag-product, .tag-region {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 0.72rem;
+      font-weight: 600;
+    }
+    .tag-product {
+      background: #667eea22;
+      color: #667eea;
+    }
+    .tag-region {
+      background: #52c41a22;
+      color: #389e0d;
+    }
+    .crop-item .region-select {
+      width: 100%;
+      padding: 5px 8px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      margin-top: 4px;
+      cursor: pointer;
+    }
+
+    /* 模式二：直接上传多个Logo */
+    .direct-upload-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 14px;
+      margin-top: 16px;
+    }
+    .direct-item {
+      background: #fafbfc;
+      border: 1px solid #eee;
+      border-radius: 10px;
+      padding: 12px;
+      text-align: center;
+    }
+    .direct-item img {
+      width: 64px;
+      height: 64px;
+      object-fit: contain;
+      border-radius: 12px;
+      margin-bottom: 8px;
+      background: #fff;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+    .direct-item input {
+      width: 100%;
+      padding: 5px 8px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      text-align: center;
+      outline: none;
+    }
+    .direct-item input:focus { border-color: #667eea; }
+    .direct-item .remove-direct {
+      background: none;
+      border: none;
+      color: #ff4d4f;
+      cursor: pointer;
+      font-size: 0.82rem;
+      margin-top: 4px;
+    }
+
+    /* 生成按钮 */
+    .generate-bar {
+      text-align: center;
+      margin: 24px 0;
+      display: none;
+    }
+    .generate-bar.visible { display: block; }
+
+    .btn {
+      padding: 11px 28px;
+      border: none;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: #fff;
+    }
+    .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+    .btn-danger { background: #ff4d4f; color: #fff; margin-left: 10px; }
+    .btn-secondary { background: #eee; color: #555; margin-left: 10px; }
+
+    /* Logo 墙展示 */
+    .wall-section { display: none; }
+    .wall-section.visible { display: block; }
+
+    .wall-toolbar {
+      background: #fff;
+      border-radius: 14px;
+      padding: 18px 24px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+      margin-bottom: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 18px;
+      align-items: center;
+    }
+    .wall-toolbar label {
+      font-size: 0.88rem;
+      font-weight: 500;
+      color: #555;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .wall-toolbar select,
+    .wall-toolbar input[type="range"] {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 5px 8px;
+      font-size: 0.88rem;
+      outline: none;
+    }
+    .wall-toolbar input[type="range"] { width: 110px; }
+    .wall-toolbar input[type="color"] {
+      width: 32px; height: 32px; padding: 2px;
+      border: 1px solid #ddd; border-radius: 8px; cursor: pointer;
+    }
+    .wall-toolbar-actions {
+      margin-left: auto;
+      display: flex;
+      gap: 8px;
+    }
+
+    .logo-wall-wrapper {
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+
+    .logo-wall {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 28px;
+      padding: 40px;
+      background: #fff;
+      transition: all 0.3s;
+    }
+
+    .logo-wall.layout-flex {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .logo-wall.layout-rows {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: stretch;
+    }
+
+    .logo-entry {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 18px 12px;
+      border-radius: 12px;
+      transition: all 0.3s;
+    }
+    .logo-entry:hover { transform: translateY(-3px); }
+
+    .logo-entry img {
+      width: 64px;
+      height: 64px;
+      object-fit: contain;
+      border-radius: 14px;
+      margin-bottom: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .logo-entry .logo-name {
+      font-size: 0.82rem;
+      color: #555;
+      text-align: center;
+      font-weight: 500;
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .logo-entry .logo-category {
+      font-size: 0.72rem;
+      color: #667eea;
+      text-align: center;
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      margin-top: 2px;
+    }
+    .logo-entry .logo-subcategory {
+      font-size: 0.68rem;
+      color: #764ba2;
+      text-align: center;
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      margin-top: 1px;
+    }
+
+    .logo-wall.hide-names .logo-entry .logo-name { display: none; }
+    .logo-wall.hide-names .logo-entry .logo-category { display: none; }
+    .logo-wall.hide-names .logo-entry .logo-subcategory { display: none; }
+
+    .logo-wall.grayscale .logo-entry img { filter: grayscale(100%); transition: filter 0.3s; }
+    .logo-wall.grayscale .logo-entry:hover img { filter: grayscale(0%); }
+
+    @media (max-width: 768px) {
+      .header h1 { font-size: 1.5rem; }
+      .card { padding: 18px; }
+      .logo-wall { padding: 20px; gap: 16px; }
+      .wall-toolbar { padding: 14px; gap: 10px; }
+      .wall-toolbar-actions { margin-left: 0; width: 100%; }
+      .crop-list { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+      .library-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+    }
+
+    /* Logo 库 */
+    .library-filter {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+    .filter-tag {
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      border: 1px solid #e0e0e0;
+      background: #fff;
+      color: #666;
+      transition: all 0.2s;
+      user-select: none;
+    }
+    .filter-tag:hover { border-color: #667eea; color: #667eea; }
+    .filter-tag.active {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: #fff;
+      border-color: transparent;
+    }
+    .filter-tag .tag-count {
+      font-size: 0.75rem;
+      opacity: 0.8;
+      margin-left: 4px;
+    }
+
+    .library-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 14px;
+    }
+    .library-empty {
+      grid-column: 1/-1;
+      text-align: center;
+      padding: 48px 20px;
+      color: #aaa;
+      font-size: 0.95rem;
+    }
+    .library-item {
+      position: relative;
+      background: #fafbfc;
+      border: 2px solid #eee;
+      border-radius: 12px;
+      padding: 14px 10px 10px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      user-select: none;
+    }
+    .library-item:hover { border-color: #c4c9d4; }
+    .library-item.selected {
+      border-color: #667eea;
+      background: #f0f1ff;
+      box-shadow: 0 0 0 3px rgba(102,126,234,0.15);
+    }
+    .library-item .lib-check {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 2px solid #ccc;
+      background: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      color: transparent;
+      transition: all 0.2s;
+    }
+    .library-item.selected .lib-check {
+      border-color: #667eea;
+      background: #667eea;
+      color: #fff;
+    }
+    .library-item img {
+      width: 60px;
+      height: 60px;
+      object-fit: contain;
+      border-radius: 12px;
+      margin-bottom: 8px;
+      background: #fff;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+    .library-item .lib-name {
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: #333;
+      max-width: 140px;
+      margin: 0 auto;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .library-item .lib-cat {
+      font-size: 0.75rem;
+      color: #667eea;
+      margin-top: 2px;
+      max-width: 140px;
+      margin-left: auto;
+      margin-right: auto;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+
+<div class="header" style="position:relative;">
+  <h1>Logo 墙管理后台</h1>
+  <p>管理员专用：上传、裁剪、管理 Logo，并导出数据供浏览页使用</p>
+  <a href="viewer.html" style="position:absolute;top:16px;right:24px;color:#fff;opacity:0.85;font-size:0.9rem;text-decoration:none;background:rgba(255,255,255,0.18);padding:6px 16px;border-radius:8px;transition:opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.85'">← 返回浏览页</a>
+</div>
+
+<div class="container">
+  <!-- 批量设置：产品 + 区域 -->
+  <div class="batch-settings" id="batchSettings">
+    <div class="batch-settings-title">采集前设置（将应用到后续所有采集的 Logo）</div>
+    <div class="batch-settings-row">
+      <label>选择产品：</label>
+      <div class="product-options" id="productOptions">
+        <button class="product-btn active" data-product="IM">IM</button>
+        <button class="product-btn" data-product="RTC">RTC</button>
+        <button class="product-btn" data-product="美颜">美颜</button>
+      </div>
+    </div>
+    <div class="batch-settings-row">
+      <label>选择区域：</label>
+      <div class="region-options" id="regionOptions">
+        <button class="region-btn active" data-region="中国大陆">中国大陆</button>
+        <button class="region-btn" data-region="中国港澳台">中国港澳台</button>
+        <button class="region-btn" data-region="日本">日本</button>
+        <button class="region-btn" data-region="韩国">韩国</button>
+        <button class="region-btn" data-region="东南亚">东南亚</button>
+        <button class="region-btn" data-region="南亚">南亚</button>
+        <button class="region-btn" data-region="中东">中东</button>
+        <button class="region-btn" data-region="欧洲">欧洲</button>
+        <button class="region-btn" data-region="北美">北美</button>
+        <button class="region-btn" data-region="拉美">拉美</button>
+        <button class="region-btn" data-region="非洲">非洲</button>
+        <button class="region-btn" data-region="其他">其他</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 模式切换 -->
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="crop">从截图裁剪 Logo</button>
+    <button class="tab-btn" data-tab="direct">直接上传 Logo</button>
+    <button class="tab-btn" data-tab="library">我的 Logo 库</button>
+  </div>
+
+  <!-- 模式一：截图裁剪 -->
+  <div class="tab-content active" id="tab-crop">
+    <div class="card">
+      <h3>上传包含 Logo 列表的截图</h3>
+      <div class="upload-area" id="cropUploadArea">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+        </svg>
+        <h3>点击或拖拽上传截图</h3>
+        <p>上传包含多个 Logo 的截图，然后框选每个 Logo</p>
+        <input type="file" id="cropFileInput" accept="image/*">
+      </div>
+
+      <div class="crop-workspace" id="cropWorkspace">
+        <div class="crop-instructions">
+          <strong>操作说明：</strong>在下方图片上按住鼠标拖动，框选一个 Logo 区域，松开后自动识别名称。或点击「智能识别」一键检测所有 Logo。
+          <div style="margin-top:10px;">
+            <button class="btn btn-primary" id="autoDetectBtn" style="padding:8px 20px;font-size:0.88rem;">智能识别所有 Logo</button>
+            <span id="autoDetectStatus" style="margin-left:10px;font-size:0.85rem;color:#667eea;"></span>
+          </div>
+        </div>
+        <div class="crop-canvas-container" id="cropContainer">
+          <img id="cropImage" src="" alt="截图">
+          <div id="cropSelectionOverlay" class="crop-selection-overlay"></div>
+          <div id="cropRect" class="crop-rect"></div>
+        </div>
+
+        <h3 style="margin-top:20px;">已裁剪的 Logo（<span id="cropCount">0</span> 个）</h3>
+        <div class="crop-list" id="cropList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 模式二：直接上传 -->
+  <div class="tab-content" id="tab-direct">
+    <div class="card">
+      <h3>直接上传 Logo 图片</h3>
+      <div class="upload-area" id="directUploadArea">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+        </svg>
+        <h3>点击或拖拽上传 Logo 图片</h3>
+        <p>支持 JPG、PNG、SVG、WebP，可一次选择多张</p>
+        <input type="file" id="directFileInput" multiple accept="image/*">
+      </div>
+
+      <div class="direct-upload-grid" id="directGrid"></div>
+    </div>
+  </div>
+
+  <!-- 模式三：我的Logo库 -->
+  <div class="tab-content" id="tab-library">
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <h3 style="margin-bottom:0;">我的 Logo 库（<span id="libraryCount">0</span> 个）</h3>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button class="btn btn-primary" id="libraryGenerateBtn" style="padding:8px 18px;font-size:0.88rem;">用选中项生成 Logo 墙</button>
+          <button class="btn btn-secondary" id="libraryExportJsonBtn" style="padding:8px 14px;font-size:0.85rem;margin-left:0;background:#1890ff22;color:#1890ff;border:1px solid #1890ff;">📤 导出数据 JSON</button>
+          <button class="btn btn-secondary" id="libraryImportJsonBtn" style="padding:8px 14px;font-size:0.85rem;margin-left:0;background:#52c41a22;color:#52c41a;border:1px solid #52c41a;">📥 导入 JSON</button>
+          <button class="btn btn-secondary" id="librarySelectAllBtn" style="padding:8px 14px;font-size:0.85rem;margin-left:0;">全选</button>
+          <button class="btn btn-danger" id="libraryDeleteSelectedBtn" style="padding:8px 14px;font-size:0.85rem;margin-left:0;">删除选中</button>
+          <input type="file" id="jsonImportInput" accept=".json" style="display:none;">
+        </div>
+      </div>
+      <div class="library-filter" id="libraryFilter">
+        <span class="filter-tag active" data-category="all">全部</span>
+      </div>
+      <div class="library-grid" id="libraryGrid">
+        <div class="library-empty">Logo 库为空，去裁剪或上传 Logo 吧</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 生成按钮 -->
+  <div class="generate-bar" id="generateBar">
+    <button class="btn btn-primary" id="generateBtn">生成 Logo 墙</button>
+    <button class="btn btn-primary" id="exportExcelBarBtn" style="background:linear-gradient(135deg,#36d1dc,#5b86e5);">导出 Excel</button>
+    <button class="btn btn-primary" id="exportPptBarBtn" style="background:linear-gradient(135deg,#f5af19,#f12711);">导出 PPT</button>
+    <button class="btn btn-secondary" id="saveToLibBtn" style="background:#667eea22;color:#667eea;border:1px solid #667eea;">存入 Logo 库</button>
+    <button class="btn btn-danger" id="clearAllBtn">清空全部</button>
+  </div>
+
+  <!-- Logo 墙展示 -->
+  <div class="wall-section" id="wallSection">
+    <div class="wall-toolbar">
+      <label>
+        布局
+        <select id="wallLayout">
+          <option value="grid">网格</option>
+          <option value="flex">弹性</option>
+        </select>
+      </label>
+      <label>
+        Logo 大小
+        <input type="range" id="wallSize" min="40" max="120" value="64">
+      </label>
+      <label>
+        间距
+        <input type="range" id="wallGap" min="12" max="60" value="28">
+      </label>
+      <label>
+        背景色
+        <input type="color" id="wallBg" value="#ffffff">
+      </label>
+      <label>
+        <input type="checkbox" id="wallGrayscale"> 灰度
+      </label>
+      <label>
+        <input type="checkbox" id="wallHideNames"> 隐藏名称
+      </label>
+      <div class="wall-toolbar-actions">
+        <button class="btn btn-primary" id="exportBtn">导出图片</button>
+        <button class="btn btn-primary" id="exportExcelBtn" style="background:linear-gradient(135deg,#36d1dc,#5b86e5);">导出 Excel</button>
+        <button class="btn btn-primary" id="exportPptBtn" style="background:linear-gradient(135deg,#f5af19,#f12711);">导出 PPT</button>
+        <button class="btn btn-secondary" id="backEditBtn">返回编辑</button>
+      </div>
+    </div>
+
+    <div class="logo-wall-wrapper" id="wallWrapper">
+      <div class="logo-wall" id="logoWall"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ============ OCR.space配置（前端可直接调用） ============
+  const OCR_SPACE_API_KEY = 'K89602487588957';
+
+  // OCR.space调用（发送原始彩色图片，不做二值化）
+  async function ocrSpaceOCR(base64Image) {
+    try {
+      const form = new FormData();
+      form.append('apikey', OCR_SPACE_API_KEY);
+      form.append('base64Image', base64Image); // 直接发送完整base64（含前缀）
+      form.append('language', 'chs'); // 简体中文
+      form.append('OCREngine', '2');  // Engine 2 更适合中文
+      form.append('scale', 'true');   // 自动放大
+      form.append('isOverlayRequired', 'false');
+
+      const res = await fetch('https://api.ocr.space/parse/image', {
+        method: 'POST',
+        body: form
+      });
+
+      const data = await res.json();
+      console.log('[OCR.space原始响应]', JSON.stringify(data).substring(0, 500));
+      
+      if (data && data.ParsedResults && data.ParsedResults.length > 0) {
+        const parsed = data.ParsedResults[0];
+        if (parsed.ErrorMessage) {
+          console.warn('[OCR.space错误]', parsed.ErrorMessage);
+          return null;
+        }
+        const text = (parsed.ParsedText || '').trim();
+        if (text) {
+          console.log('[OCR.space识别成功]', text);
+          return text;
+        }
+      }
+      return null;
+    } catch (err) {
+      console.warn('[OCR.space失败]', err);
+      return null;
+    }
+  }
+
+  // Tesseract降级OCR（仅在OCR.space失败时使用）
+  async function tesseractOCR(base64Image, mode) {
+    try {
+      const { data: { text } } = await Tesseract.recognize(
+        base64Image,
+        'chi_sim+eng',
+        { logger: () => {} }
+      );
+      return (text || '').trim();
+    } catch (err) {
+      console.warn('[Tesseract失败]', err);
+      return '';
+    }
+  }
+
+  // 统一OCR入口：OCR.space优先 → Tesseract降级
+  async function doOCR(base64ImageOriginal, base64ImageProcessed) {
+    // 1. 先用OCR.space识别原始彩色图片（云端引擎自己处理效果最好）
+    const cloudResult = await ocrSpaceOCR(base64ImageOriginal);
+    if (cloudResult) {
+      return cloudResult;
+    }
+    
+    // 2. OCR.space失败，用Tesseract识别预处理后的图片
+    console.log('[OCR降级] 使用Tesseract');
+    const localResult = await tesseractOCR(base64ImageProcessed, '7');
+    return localResult || '';
+  }
+
+  // 清理OCR文本：去除垃圾字符，保留有意义的中英文
+  function postProcessOcrText(raw) {
+    if (!raw) return '';
+    // 合并中文字符间的空格
+    let text = raw.replace(/([\u4e00-\u9fa5])\s+([\u4e00-\u9fa5])/g, '$1$2');
+    text = text.replace(/([\u4e00-\u9fa5])\s+([\u4e00-\u9fa5])/g, '$1$2');
+    // 去除特殊符号（保留中文、英文、空格）
+    text = text.replace(/[^a-zA-Z\u4e00-\u9fa5\s]/g, '');
+    text = text.trim();
+    return text;
+  }
+
+  // ============ 数据 ============
+  let logoEntries = [];
+
+  // 产品列表
+  const PRODUCTS = ['IM', 'RTC', '美颜'];
+  let currentProduct = 'IM'; // 全局当前选中的产品
+
+  // 地区列表
+  const REGIONS = ['中国大陆', '中国港澳台', '日本', '韩国', '东南亚', '南亚', '中东', '欧洲', '北美', '拉美', '非洲', '其他'];
+
+  // App名称 → 地区映射（根据App语言/来源自动识别）
+  const APP_REGION_MAP = {
+    // 日本App
+    'LINE': '日本', 'PayPay': '日本', 'メルカリ': '日本', 'Yahoo!': '日本',
+    'SmartNews': '日本', 'AbemaTV': '日本', 'dTV': '日本', 'U-NEXT': '日本',
+    'Rakuten': '日本', '楽天': '日本', 'DAZN': '日本',
+    // 韩国App
+    'KakaoTalk': '韩国', 'Kakao': '韩国', 'Naver': '韩国', 'Coupang': '韩国',
+    'Toss': '韩国', 'BAND': '韩国', 'Baemin': '韩国',
+    // 东南亚App
+    'Grab': '东南亚', 'Gojek': '东南亚', 'Shopee': '东南亚', 'Lazada': '东南亚',
+    'Tokopedia': '东南亚', 'Bukalapak': '东南亚', 'GCash': '东南亚',
+    'Dana': '东南亚', 'OVO': '东南亚', 'Momo': '东南亚',
+    // 南亚App
+    'Paytm': '南亚', 'PhonePe': '南亚', 'Flipkart': '南亚', 'Swiggy': '南亚',
+    'Zomato': '南亚', 'Ola': '南亚', 'JioMart': '南亚',
+    // 中东App
+    'Careem': '中东', 'Noon': '中东', 'HungerStation': '中东', 'Talabat': '中东',
+    // 北美App
+    'Uber': '北美', 'Lyft': '北美', 'DoorDash': '北美', 'Venmo': '北美',
+    'Cash App': '北美', 'Hulu': '北美',
+    // 欧洲App
+    'Revolut': '欧洲', 'N26': '欧洲', 'Bolt': '欧洲', 'Deliveroo': '欧洲',
+    'Just Eat': '欧洲', 'Glovo': '欧洲',
+    // 拉美App
+    'Mercado Libre': '拉美', 'Rappi': '拉美', 'iFood': '拉美', 'Nubank': '拉美',
+    // 全球App（不做地区归属，需人工选）
+    'WhatsApp': '', 'Instagram': '', 'Facebook': '', 'TikTok': '', 'YouTube': '',
+    'Twitter': '', 'X': '', 'Telegram': '', 'Discord': '', 'Zoom': '',
+    'Netflix': '', 'Spotify': '', 'Amazon': '',
+  };
+
+  // 根据App名称中的文字特征猜测地区
+  function guessRegionByName(name) {
+    if (!name) return '';
+    // 1. 先查映射表
+    if (APP_REGION_MAP[name] !== undefined) return APP_REGION_MAP[name];
+    // 模糊匹配映射表
+    for (const [key, region] of Object.entries(APP_REGION_MAP)) {
+      if (name.includes(key) || key.includes(name)) return region;
+    }
+    // 2. 根据文字特征判断
+    // 日文假名
+    if (/[\u3040-\u309F\u30A0-\u30FF]/.test(name)) return '日本';
+    // 韩文
+    if (/[\uAC00-\uD7AF\u1100-\u11FF]/.test(name)) return '韩国';
+    // 阿拉伯文
+    if (/[\u0600-\u06FF]/.test(name)) return '中东';
+    // 泰文
+    if (/[\u0E00-\u0E7F]/.test(name)) return '东南亚';
+    // 印地文/天城文
+    if (/[\u0900-\u097F]/.test(name)) return '南亚';
+    // 纯中文（大概率中国大陆）
+    if (/^[\u4e00-\u9fa5]+$/.test(name)) return '中国大陆';
+    // 中英混合（大概率中国大陆）
+    if (/[\u4e00-\u9fa5]/.test(name)) return '中国大陆';
+    return '';
+  }
+  // ============ Logo 库 (localStorage 持久化) ============
+  const LIBRARY_KEY = 'logo_wall_library';
+
+  function loadLibrary() {
+    try {
+      const data = localStorage.getItem(LIBRARY_KEY);
+      return data ? JSON.parse(data) : [];
+    } catch(e) { return []; }
+  }
+
+  function saveLibrary(lib) {
+    try {
+      localStorage.setItem(LIBRARY_KEY, JSON.stringify(lib));
+    } catch(e) {
+      alert('存储空间不足，请删除部分Logo后重试');
+    }
+  }
+
+  function addToLibrary(items) {
+    const lib = loadLibrary();
+    items.forEach(item => {
+      // 按名称+图片去重
+      const exists = lib.some(l => l.name === item.name && l.src === item.src);
+      if (!exists) {
+        lib.push({
+          id: Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+          src: item.src,
+          name: item.name || '未命名',
+          category: item.category || '',
+          subcategory: item.subcategory || '',
+          product: item.product || '',
+          region: item.region || '',
+          addedAt: Date.now()
+        });
+      }
+    });
+    saveLibrary(lib);
+    renderLibrary();
+  }
+
+  function removeFromLibrary(ids) {
+    let lib = loadLibrary();
+    lib = lib.filter(item => !ids.includes(item.id));
+    saveLibrary(lib);
+    renderLibrary();
+  }
+
+  // ============ App 类别系统（大分类 + 小分类） ============
+  const CATEGORY_TREE = {
+    '商务办公': ['在线会议', '商务沟通', '项目管理', '文档协作', '企业管理', '办公工具', '求职招聘', '其他'],
+    '社交聊天': ['即时通讯', '社区论坛', '婚恋交友', '兴趣社交', '其他'],
+    '娱乐': ['OTT', '短视频', '直播', '音乐与音频', '播客', '其他'],
+    '购物': ['综合电商', '二手交易', '特卖折扣', '跨境电商', '其他'],
+    '生活服务': ['外卖配送', '本地生活', '快递物流', '女性健康', '拍照工具', '二手交易', '家用电器', '通信运营', '便利店', '婚庆服务', '其他'],
+    '金融理财': ['银行', '支付', '投资理财', '保险', '借贷', '其他'],
+    '出行导航': ['地图导航', '打车出行', '共享单车', '货运', '其他'],
+    '旅游出行': ['综合旅游服务', '酒店住宿', '机票火车', '旅行攻略', '其他'],
+    '教育学习': ['K12教育', '职业培训', '语言学习', '在线课程', '其他'],
+    '游戏': ['射击', '团队竞技', 'MOBA', 'RPG', '休闲益智', '棋牌', '其他'],
+    '新闻资讯': ['综合新闻', '财经资讯', '科技资讯', '体育资讯', '其他'],
+    '照片视频': ['照片编辑', '视频编辑', '相机工具', '美颜滤镜', '其他'],
+    '健身健康': ['运动健身', '医疗健康', '女性健康', '心理健康', '在线医疗', '其他'],
+    '阅读文学': ['小说阅读', '电子书', '有声书', '漫画', '其他'],
+    '房产家居': ['租房买房', '家装设计', '智能家居', '其他'],
+    'AI 人工智能': ['AI助手', 'AI创作', 'AI工具', '其他'],
+    '美食餐饮': ['餐厅推荐', '美食菜谱', '食品生鲜', '其他'],
+    '汽车服务': ['买车卖车', '车主服务', '充电加油', '其他'],
+    '工具效率': ['浏览器', '系统工具', '文件管理', '效率工具', '其他'],
+    '其他': ['其他']
+  };
+
+  const MAJOR_CATEGORIES = Object.keys(CATEGORY_TREE);
+
+  // 常见 App 名称 → { major, minor } 映射
+  const APP_NAME_CATEGORY_MAP = {
+    '微信': { major: '社交聊天', minor: '即时通讯' },
+    'QQ': { major: '社交聊天', minor: '即时通讯' },
+    '钉钉': { major: '商务办公', minor: '企业管理' },
+    '飞书': { major: '商务办公', minor: '企业管理' },
+    '企业微信': { major: '商务办公', minor: '商务沟通' },
+    '微博': { major: '社交聊天', minor: '社区论坛' },
+    '小红书': { major: '社交聊天', minor: '兴趣社交' },
+    '抖音': { major: '娱乐', minor: '短视频' },
+    '快手': { major: '娱乐', minor: '短视频' },
+    '西瓜视频': { major: '娱乐', minor: 'OTT' },
+    'B站': { major: '娱乐', minor: 'OTT' },
+    '哔哩哔哩': { major: '娱乐', minor: 'OTT' },
+    '优酷': { major: '娱乐', minor: 'OTT' },
+    '爱奇艺': { major: '娱乐', minor: 'OTT' },
+    '腾讯视频': { major: '娱乐', minor: 'OTT' },
+    '芒果TV': { major: '娱乐', minor: 'OTT' },
+    '淘宝': { major: '购物', minor: '综合电商' },
+    '天猫': { major: '购物', minor: '综合电商' },
+    '京东': { major: '购物', minor: '综合电商' },
+    '拼多多': { major: '购物', minor: '综合电商' },
+    '唯品会': { major: '购物', minor: '特卖折扣' },
+    '闲鱼': { major: '购物', minor: '二手交易' },
+    '得物': { major: '购物', minor: '综合电商' },
+    '1688': { major: '购物', minor: '综合电商' },
+    '一手服装': { major: '购物', minor: '综合电商' },
+    '朴朴超市': { major: '生活服务', minor: '外卖配送' },
+    '朴朴': { major: '生活服务', minor: '外卖配送' },
+    '美团': { major: '生活服务', minor: '外卖配送' },
+    '饿了么': { major: '生活服务', minor: '外卖配送' },
+    '盒马': { major: '生活服务', minor: '外卖配送' },
+    '叮咚买菜': { major: '生活服务', minor: '外卖配送' },
+    '货拉拉': { major: '出行导航', minor: '货运' },
+    '货拉拉司机版': { major: '出行导航', minor: '货运' },
+    '支付宝': { major: '金融理财', minor: '支付' },
+    '云闪付': { major: '金融理财', minor: '支付' },
+    '招商银行': { major: '金融理财', minor: '银行' },
+    '工商银行': { major: '金融理财', minor: '银行' },
+    '建设银行': { major: '金融理财', minor: '银行' },
+    '农业银行': { major: '金融理财', minor: '银行' },
+    '中国银行': { major: '金融理财', minor: '银行' },
+    '交通银行': { major: '金融理财', minor: '银行' },
+    '民生银行': { major: '金融理财', minor: '银行' },
+    '浦发银行': { major: '金融理财', minor: '银行' },
+    '兴业银行': { major: '金融理财', minor: '银行' },
+    '光大银行': { major: '金融理财', minor: '银行' },
+    '中信银行': { major: '金融理财', minor: '银行' },
+    '华夏银行': { major: '金融理财', minor: '银行' },
+    '平安银行': { major: '金融理财', minor: '银行' },
+    '买单吧': { major: '金融理财', minor: '支付' },
+    '新浪财经': { major: '新闻资讯', minor: '财经资讯' },
+    '百度地图': { major: '出行导航', minor: '地图导航' },
+    '高德地图': { major: '出行导航', minor: '地图导航' },
+    '腾讯地图': { major: '出行导航', minor: '地图导航' },
+    '滴滴出行': { major: '出行导航', minor: '打车出行' },
+    '小拉出行': { major: '出行导航', minor: '打车出行' },
+    '哈啰': { major: '出行导航', minor: '共享单车' },
+    'T3出行': { major: '出行导航', minor: '打车出行' },
+    '自如': { major: '房产家居', minor: '租房买房' },
+    '贝壳找房': { major: '房产家居', minor: '租房买房' },
+    '贝壳': { major: '房产家居', minor: '租房买房' },
+    '链家': { major: '房产家居', minor: '租房买房' },
+    '安居客': { major: '房产家居', minor: '租房买房' },
+    '知乎': { major: '新闻资讯', minor: '综合新闻' },
+    '今日头条': { major: '新闻资讯', minor: '综合新闻' },
+    '网易新闻': { major: '新闻资讯', minor: '综合新闻' },
+    '腾讯新闻': { major: '新闻资讯', minor: '综合新闻' },
+    '澎湃新闻': { major: '新闻资讯', minor: '综合新闻' },
+    '网易云音乐': { major: '娱乐', minor: '音乐与音频' },
+    'QQ音乐': { major: '娱乐', minor: '音乐与音频' },
+    '酷狗音乐': { major: '娱乐', minor: '音乐与音频' },
+    '汽水音乐': { major: '娱乐', minor: '音乐与音频' },
+    '喜马拉雅': { major: '娱乐', minor: '播客' },
+    '百度': { major: '工具效率', minor: '浏览器' },
+    '夸克': { major: '工具效率', minor: '浏览器' },
+    'UC浏览器': { major: '工具效率', minor: '浏览器' },
+    '豆包': { major: 'AI 人工智能', minor: 'AI助手' },
+    '千问': { major: 'AI 人工智能', minor: 'AI助手' },
+    '文心一言': { major: 'AI 人工智能', minor: 'AI助手' },
+    'ChatGPT': { major: 'AI 人工智能', minor: 'AI助手' },
+    'Kimi': { major: 'AI 人工智能', minor: 'AI助手' },
+    'DeepSeek': { major: 'AI 人工智能', minor: 'AI助手' },
+    '通义千问': { major: 'AI 人工智能', minor: 'AI助手' },
+    '之了课堂': { major: '教育学习', minor: '职业培训' },
+    '学而思': { major: '教育学习', minor: 'K12教育' },
+    '作业帮': { major: '教育学习', minor: 'K12教育' },
+    '猿辅导': { major: '教育学习', minor: 'K12教育' },
+    '网易公开课': { major: '教育学习', minor: '在线课程' },
+    'MOOC': { major: '教育学习', minor: '在线课程' },
+    '画世界': { major: '照片视频', minor: '照片编辑' },
+    '美图秀秀': { major: '照片视频', minor: '美颜滤镜' },
+    '醒图': { major: '照片视频', minor: '照片编辑' },
+    '携程': { major: '旅游出行', minor: '综合旅游服务' },
+    '携程旅行': { major: '旅游出行', minor: '综合旅游服务' },
+    '飞猪': { major: '旅游出行', minor: '综合旅游服务' },
+    '去哪儿': { major: '旅游出行', minor: '综合旅游服务' },
+    '同程旅行': { major: '旅游出行', minor: '综合旅游服务' },
+    '马蜂窝': { major: '旅游出行', minor: '旅行攻略' },
+    '王者荣耀': { major: '游戏', minor: 'MOBA' },
+    '和平精英': { major: '游戏', minor: '射击' },
+    '原神': { major: '游戏', minor: 'RPG' },
+    '空灵诗篇': { major: '游戏', minor: 'RPG' },
+    '崩坏': { major: '游戏', minor: 'RPG' },
+    '无畏契约': { major: '游戏', minor: '射击' },
+    '红果短剧': { major: '娱乐', minor: '短视频' },
+    'Keep': { major: '健身健康', minor: '运动健身' },
+    '番茄小说': { major: '阅读文学', minor: '小说阅读' },
+    '微信读书': { major: '阅读文学', minor: '电子书' },
+    '丁香医生': { major: '健身健康', minor: '医疗健康' },
+    '平安好医生': { major: '健身健康', minor: '医疗健康' },
+    '大众点评': { major: '美食餐饮', minor: '餐厅推荐' },
+    '下厨房': { major: '美食餐饮', minor: '美食菜谱' },
+    '腾讯会议': { major: '商务办公', minor: '在线会议' },
+    '美柚': { major: '健身健康', minor: '女性健康' },
+    '转转': { major: '购物', minor: '二手交易' },
+    '今日水印': { major: '照片视频', minor: '照片编辑' },
+    '今日水印相机': { major: '照片视频', minor: '照片编辑' },
+    '猎聘': { major: '商务办公', minor: '求职招聘' },
+    '麦德龙': { major: '购物', minor: '综合电商' },
+    '海信爱家': { major: '生活服务', minor: '家用电器' },
+    '好大夫在线': { major: '健身健康', minor: '在线医疗' },
+    '好大夫': { major: '健身健康', minor: '在线医疗' },
+    '婚礼纪': { major: '生活服务', minor: '婚庆服务' },
+    '全家': { major: '生活服务', minor: '便利店' },
+    '全家便利店': { major: '生活服务', minor: '便利店' },
+    'FamilyMart': { major: '生活服务', minor: '便利店' },
+    'T-FAMI': { major: '生活服务', minor: '便利店' },
+    'TFAMI': { major: '生活服务', minor: '便利店' },
+    '罗森': { major: '生活服务', minor: '便利店' },
+    '7-Eleven': { major: '生活服务', minor: '便利店' },
+    '711': { major: '生活服务', minor: '便利店' },
+    '便利蜂': { major: '生活服务', minor: '便利店' },
+    'BOSS直聘': { major: '商务办公', minor: '求职招聘' },
+    '智联招聘': { major: '商务办公', minor: '求职招聘' },
+    '前程无忧': { major: '商务办公', minor: '求职招聘' },
+    '拉勾': { major: '商务办公', minor: '求职招聘' },
+    '脉脉': { major: '商务办公', minor: '商务沟通' },
+    '58同城': { major: '生活服务', minor: '本地生活' },
+    '赶集网': { major: '生活服务', minor: '本地生活' },
+    '万能钥匙': { major: '工具效率', minor: '系统工具' },
+    '墨迹天气': { major: '工具效率', minor: '系统工具' },
+    '中国移动': { major: '生活服务', minor: '通信运营' },
+    '中国联通': { major: '生活服务', minor: '通信运营' },
+    '中国电信': { major: '生活服务', minor: '通信运营' },
+    '12306': { major: '旅游出行', minor: '机票火车' },
+    '铁路12306': { major: '旅游出行', minor: '机票火车' },
+    '滴滴': { major: '出行导航', minor: '打车出行' },
+    '曹操出行': { major: '出行导航', minor: '打车出行' },
+    '花小猪': { major: '出行导航', minor: '打车出行' },
+    '顺丰': { major: '生活服务', minor: '快递物流' },
+    '顺丰速运': { major: '生活服务', minor: '快递物流' },
+    '菜鸟': { major: '生活服务', minor: '快递物流' },
+    '菜鸟裹裹': { major: '生活服务', minor: '快递物流' },
+    '极兔': { major: '生活服务', minor: '快递物流' },
+    '极兔快递': { major: '生活服务', minor: '快递物流' },
+    '中通': { major: '生活服务', minor: '快递物流' },
+    '中通快递': { major: '生活服务', minor: '快递物流' },
+    '韵达': { major: '生活服务', minor: '快递物流' },
+    '圆通': { major: '生活服务', minor: '快递物流' },
+    '申通': { major: '生活服务', minor: '快递物流' },
+    '瑞幸咖啡': { major: '美食餐饮', minor: '餐厅推荐' },
+    '瑞幸': { major: '美食餐饮', minor: '餐厅推荐' },
+    '星巴克': { major: '美食餐饮', minor: '餐厅推荐' },
+    '肯德基': { major: '美食餐饮', minor: '餐厅推荐' },
+    'KFC': { major: '美食餐饮', minor: '餐厅推荐' },
+    '麦当劳': { major: '美食餐饮', minor: '餐厅推荐' },
+    '必胜客': { major: '美食餐饮', minor: '餐厅推荐' },
+    '盒马鲜生': { major: '生活服务', minor: '外卖配送' },
+    '每日优鲜': { major: '生活服务', minor: '外卖配送' },
+    '山姆': { major: '购物', minor: '综合电商' },
+    '山姆会员店': { major: '购物', minor: '综合电商' },
+    '永辉': { major: '购物', minor: '综合电商' },
+    '永辉超市': { major: '购物', minor: '综合电商' },
+    '苏宁': { major: '购物', minor: '综合电商' },
+    '苏宁易购': { major: '购物', minor: '综合电商' },
+    '国美': { major: '购物', minor: '综合电商' },
+    '当当': { major: '购物', minor: '综合电商' },
+    '网易严选': { major: '购物', minor: '综合电商' },
+    '考拉海购': { major: '购物', minor: '跨境电商' },
+    '洋码头': { major: '购物', minor: '跨境电商' },
+    '天猫国际': { major: '购物', minor: '跨境电商' },
+    '马上到家': { major: '生活服务', minor: '外卖配送' },
+    '多点': { major: '购物', minor: '综合电商' },
+    '多点超市': { major: '购物', minor: '综合电商' },
+    '物美': { major: '购物', minor: '综合电商' },
+    '年货节': { major: '购物', minor: '综合电商' },
+    '万达': { major: '生活服务', minor: '本地生活' },
+    '万达广场': { major: '生活服务', minor: '本地生活' },
+    '万达电影': { major: '娱乐', minor: '其他' },
+    '淘票票': { major: '娱乐', minor: '其他' },
+    '猫眼': { major: '娱乐', minor: '其他' },
+    '猫眼电影': { major: '娱乐', minor: '其他' },
+    '微医': { major: '健身健康', minor: '在线医疗' },
+    '春雨医生': { major: '健身健康', minor: '在线医疗' },
+    '薄荷健康': { major: '健身健康', minor: '运动健身' },
+    '咕咚': { major: '健身健康', minor: '运动健身' },
+    '华为运动健康': { major: '健身健康', minor: '运动健身' },
+    '小米运动': { major: '健身健康', minor: '运动健身' },
+    '懂车帝': { major: '汽车服务', minor: '买车卖车' },
+    '汽车之家': { major: '汽车服务', minor: '买车卖车' },
+    '途虎养车': { major: '汽车服务', minor: '车主服务' },
+    '特来电': { major: '汽车服务', minor: '充电加油' },
+    '探探': { major: '社交聊天', minor: '婚恋交友' },
+    '陌陌': { major: '社交聊天', minor: '婚恋交友' },
+    '珍爱网': { major: '社交聊天', minor: '婚恋交友' },
+    '世纪佳缘': { major: '社交聊天', minor: '婚恋交友' },
+    'Soul': { major: '社交聊天', minor: '兴趣社交' },
+    '豆瓣': { major: '社交聊天', minor: '社区论坛' },
+    '虎扑': { major: '新闻资讯', minor: '体育资讯' },
+    '36氪': { major: '新闻资讯', minor: '科技资讯' },
+    '雪球': { major: '新闻资讯', minor: '财经资讯' },
+    '东方财富': { major: '金融理财', minor: '投资理财' },
+    '同花顺': { major: '金融理财', minor: '投资理财' },
+    '蚂蚁财富': { major: '金融理财', minor: '投资理财' },
+    '京东金融': { major: '金融理财', minor: '投资理财' },
+    '度小满': { major: '金融理财', minor: '借贷' },
+    '借呗': { major: '金融理财', minor: '借贷' },
+    '微粒贷': { major: '金融理财', minor: '借贷' },
+    '宜家': { major: '房产家居', minor: '家装设计' },
+    '土巴兔': { major: '房产家居', minor: '家装设计' },
+    '齐家网': { major: '房产家居', minor: '家装设计' },
+    '美团外卖': { major: '生活服务', minor: '外卖配送' },
+    '饿了么外卖': { major: '生活服务', minor: '外卖配送' },
+    '美团优选': { major: '生活服务', minor: '外卖配送' },
+    '多多买菜': { major: '生活服务', minor: '外卖配送' },
+    '淘鲜达': { major: '生活服务', minor: '外卖配送' },
+    '百果园': { major: '美食餐饮', minor: '食品生鲜' },
+    '叮咚': { major: '生活服务', minor: '外卖配送' },
+    '每日优鲜': { major: '生活服务', minor: '外卖配送' },
+    '沃尔玛': { major: '购物', minor: '综合电商' },
+    '奥乐齐': { major: '购物', minor: '综合电商' },
+    'ALDI': { major: '购物', minor: '综合电商' },
+    'Costco': { major: '购物', minor: '综合电商' },
+    '鱼泡直聘': { major: '商务办公', minor: '求职招聘' },
+    '鱼泡': { major: '商务办公', minor: '求职招聘' },
+    '233乐园': { major: '游戏', minor: '休闲益智' },
+    '粉笔': { major: '教育学习', minor: '职业培训' },
+    '粉笔教育': { major: '教育学习', minor: '职业培训' },
+    '智学网': { major: '教育学习', minor: 'K12教育' },
+    '滑呗': { major: '健身健康', minor: '运动健身' },
+    '比亚迪': { major: '汽车服务', minor: '买车卖车' },
+    'BYD': { major: '汽车服务', minor: '买车卖车' },
+    '英雄联盟': { major: '游戏', minor: 'MOBA' },
+    '英雄联盟手游': { major: '游戏', minor: 'MOBA' },
+    'LOL': { major: '游戏', minor: 'MOBA' },
+    '蛋仔派对': { major: '游戏', minor: '休闲益智' },
+    '地铁跑酷': { major: '游戏', minor: '休闲益智' },
+    '开心消消乐': { major: '游戏', minor: '休闲益智' },
+    '欢乐斗地主': { major: '游戏', minor: '棋牌' },
+    '天天象棋': { major: '游戏', minor: '棋牌' },
+    '光遇': { major: '游戏', minor: 'RPG' },
+    '元梦之星': { major: '游戏', minor: '休闲益智' },
+    '第五人格': { major: '游戏', minor: '团队竞技' },
+    '金铲铲之战': { major: '游戏', minor: '团队竞技' },
+    '三国杀': { major: '游戏', minor: '棋牌' },
+    '梦幻西游': { major: '游戏', minor: 'RPG' },
+    '阴阳师': { major: '游戏', minor: 'RPG' },
+    '暗区突围': { major: '游戏', minor: '射击' },
+    '穿越火线': { major: '游戏', minor: '射击' },
+    'CF': { major: '游戏', minor: '射击' },
+    '刺激战场': { major: '游戏', minor: '射击' },
+    '绝地求生': { major: '游戏', minor: '射击' },
+    'PUBG': { major: '游戏', minor: '射击' },
+    '使命召唤': { major: '游戏', minor: '射击' },
+    '明日方舟': { major: '游戏', minor: 'RPG' },
+    '逆水寒': { major: '游戏', minor: 'RPG' },
+    '荣耀': { major: '游戏', minor: 'MOBA' },
+    '摩天轮': { major: '娱乐', minor: 'OTT' },
+    '摩天轮票务': { major: '娱乐', minor: 'OTT' },
+    '逆战': { major: '游戏', minor: '射击' },
+    '逆战助手': { major: '游戏', minor: '射击' },
+    '手机公积金': { major: '金融理财', minor: '其他' },
+    'ima': { major: 'AI 人工智能', minor: 'AI助手' },
+    'CAD看图': { major: '商务办公', minor: '办公工具' },
+    '撕歌': { major: '娱乐', minor: '音乐与音频' },
+    '扇贝单词': { major: '教育学习', minor: '语言学习' },
+    '扇贝': { major: '教育学习', minor: '语言学习' },
+  };
+
+  // OCR常见误读别名 → 正确名称
+  const OCR_ALIAS_MAP = {
+    'DEBR-L': '马上到家',
+    'DEBRL': '马上到家',
+    'T-FAMI': '全家',
+    'TFAMI': '全家',
+    'T-FAM': '全家',
+    'TFAM': '全家',
+    'FAMILYMART': '全家',
+    'FamilyMart': '全家',
+    'Family': '全家',
+    '全家便利': '全家',
+    'BOsS直聘': 'BOSS直聘',
+    'Boss直聘': 'BOSS直聘',
+    'boss直聘': 'BOSS直聘',
+    '链 家': '链家',
+    '猪 聘': '猎聘',
+    '猎 聘': '猎聘',
+    '好大夫': '好大夫在线',
+    '好大': '好大夫在线',
+    '海信爱': '海信爱家',
+    '婚礼': '婚礼纪',
+    '招商银': '招商银行',
+    '招商': '招商银行',
+    '麦德': '麦德龙',
+    '马上到': '马上到家',
+    '年货': '年货节',
+    '鱼泡': '鱼泡直聘',
+    '鱼泡直聘': '鱼泡直聘',
+    '233乐园': '233乐园',
+    '233': '233乐园',
+    '智学网': '智学网',
+    '智学': '智学网',
+    '粉笔': '粉笔',
+    '滑呗': '滑呗',
+    '滑 呗': '滑呗',
+    '比亚迪': '比亚迪',
+    'BYD': '比亚迪',
+    'BmMm': '比亚迪',
+    '逆战助': '逆战助手',
+    '摩天': '摩天轮',
+    '手机公积': '手机公积金',
+    '公积金': '手机公积金',
+    'CAD': 'CAD看图',
+    '扇贝单': '扇贝单词',
+    '扇 贝': '扇贝',
+    '华夏银': '华夏银行',
+    '华夏': '华夏银行',
+  };
+
+  function matchCategory(name) {
+    if (!name) return { major: '', minor: '' };
+    // 精确匹配
+    if (APP_NAME_CATEGORY_MAP[name]) return { ...APP_NAME_CATEGORY_MAP[name] };
+    // 模糊匹配（名称包含关键词）
+    for (const [key, cat] of Object.entries(APP_NAME_CATEGORY_MAP)) {
+      if (name.includes(key) || key.includes(name)) return { ...cat };
+    }
+    return { major: '', minor: '' };
+  }
+
+  // ============ 产品 + 区域 批量选择 ============
+  document.querySelectorAll('#productOptions .product-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#productOptions .product-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentProduct = btn.dataset.product;
+    });
+  });
+
+  let currentRegion = '中国大陆'; // 全局当前选中的区域
+  document.querySelectorAll('#regionOptions .region-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#regionOptions .region-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentRegion = btn.dataset.region;
+    });
+  });
+
+  // ============ Tab 切换 ============
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  // ============ 模式一：截图裁剪 ============
+  const cropUploadArea = document.getElementById('cropUploadArea');
+  const cropFileInput = document.getElementById('cropFileInput');
+  const cropWorkspace = document.getElementById('cropWorkspace');
+  const cropImage = document.getElementById('cropImage');
+  const cropContainer = document.getElementById('cropContainer');
+  const cropSelectionOverlay = document.getElementById('cropSelectionOverlay');
+  const cropRectEl = document.getElementById('cropRect');
+  const cropList = document.getElementById('cropList');
+  const cropCountEl = document.getElementById('cropCount');
+
+  let cropItems = [];
+  let isCropping = false;
+  let cropStartX = 0, cropStartY = 0;
+
+  cropUploadArea.addEventListener('click', () => cropFileInput.click());
+  setupDragDrop(cropUploadArea, cropFileInput);
+
+  cropFileInput.addEventListener('change', (e) => {
+    if (e.target.files[0]) loadCropImage(e.target.files[0]);
+    e.target.value = '';
+  });
+
+  function loadCropImage(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      cropImage.src = e.target.result;
+      cropImage.onload = () => {
+        cropWorkspace.classList.add('visible');
+        updateGenerateBar();
+      };
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // 框选裁剪 — 用 div 实现选区
+  cropSelectionOverlay.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const containerRect = cropContainer.getBoundingClientRect();
+    cropStartX = e.clientX - containerRect.left;
+    cropStartY = e.clientY - containerRect.top;
+    isCropping = true;
+
+    cropRectEl.style.left = cropStartX + 'px';
+    cropRectEl.style.top = cropStartY + 'px';
+    cropRectEl.style.width = '0px';
+    cropRectEl.style.height = '0px';
+    cropRectEl.style.display = 'block';
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!isCropping) return;
+    e.preventDefault();
+    const containerRect = cropContainer.getBoundingClientRect();
+    const curX = Math.max(0, Math.min(e.clientX - containerRect.left, cropImage.clientWidth));
+    const curY = Math.max(0, Math.min(e.clientY - containerRect.top, cropImage.clientHeight));
+
+    const x = Math.min(cropStartX, curX);
+    const y = Math.min(cropStartY, curY);
+    const w = Math.abs(curX - cropStartX);
+    const h = Math.abs(curY - cropStartY);
+
+    cropRectEl.style.left = x + 'px';
+    cropRectEl.style.top = y + 'px';
+    cropRectEl.style.width = w + 'px';
+    cropRectEl.style.height = h + 'px';
+  });
+
+  document.addEventListener('mouseup', (e) => {
+    if (!isCropping) return;
+    isCropping = false;
+
+    const x = parseInt(cropRectEl.style.left) || 0;
+    const y = parseInt(cropRectEl.style.top) || 0;
+    const w = parseInt(cropRectEl.style.width) || 0;
+    const h = parseInt(cropRectEl.style.height) || 0;
+
+    cropRectEl.style.display = 'none';
+
+    if (w > 10 && h > 10) {
+      extractCropRegion({ x, y, w, h });
+    }
+  });
+
+  // ============ 智能识别所有 Logo ============
+  document.getElementById('autoDetectBtn').addEventListener('click', autoDetectLogos);
+
+  function autoDetectLogos() {
+    if (!cropImage.src || !cropImage.naturalWidth) {
+      alert('请先上传截图');
+      return;
+    }
+
+    const btn = document.getElementById('autoDetectBtn');
+    const status = document.getElementById('autoDetectStatus');
+    btn.disabled = true;
+    btn.textContent = '识别中...';
+    status.textContent = '正在分析图片...';
+
+    setTimeout(() => { doAutoDetect(btn, status); }, 50);
+  }
+
+  function doAutoDetect(btn, status) {
+    const natW = cropImage.naturalWidth;
+    const natH = cropImage.naturalHeight;
+    const dispW = cropImage.clientWidth;
+    const dispH = cropImage.clientHeight;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = natW;
+    canvas.height = natH;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(cropImage, 0, 0);
+    const imgData = ctx.getImageData(0, 0, natW, natH);
+    const px = imgData.data;
+
+    function getP(x, y) {
+      if (x < 0 || x >= natW || y < 0 || y >= natH) return [255, 255, 255];
+      const i = (y * natW + x) * 4;
+      return [px[i], px[i+1], px[i+2]];
+    }
+
+    // 页面纯白背景
+    function isBg(r, g, b) {
+      return (r > 240 && g > 240 && b > 240);
+    }
+
+    // 灰色边框线检测（Logo圆角正方形的细灰线，通常是 200~240 灰度）
+    function isGrayBorder(r, g, b) {
+      const gray = r * 0.299 + g * 0.587 + b * 0.114;
+      const maxDiff = Math.max(Math.abs(r - g), Math.abs(g - b), Math.abs(r - b));
+      return gray >= 180 && gray <= 240 && maxDiff < 20;
+    }
+
+    // 非纯白内容（包括灰色边框）
+    function isContent(r, g, b) {
+      return !isBg(r, g, b);
+    }
+
+    // ===== 行分隔检测 =====
+    const rowBgRatio = [];
+    for (let y = 0; y < natH; y++) {
+      let bgCount = 0;
+      const step = Math.max(1, Math.floor(natW / 200));
+      let samples = 0;
+      for (let x = 0; x < natW; x += step) {
+        const [r, g, b] = getP(x, y);
+        if (isBg(r, g, b)) bgCount++;
+        samples++;
+      }
+      rowBgRatio.push(bgCount / samples);
+    }
+
+    const bgThreshold = 0.95;
+    const bands = [];
+    let bandStart = -1;
+    for (let y = 0; y < natH; y++) {
+      if (rowBgRatio[y] < bgThreshold) {
+        if (bandStart === -1) bandStart = y;
+      } else {
+        if (bandStart !== -1) {
+          const h = y - bandStart;
+          if (h > 30) {
+            bands.push({ top: bandStart, bottom: y, h });
+          }
+          bandStart = -1;
+        }
+      }
+    }
+    if (bandStart !== -1) {
+      const h = natH - bandStart;
+      if (h > 30) bands.push({ top: bandStart, bottom: natH, h });
+    }
+
+    if (bands.length === 0) {
+      status.textContent = '未检测到行结构，请尝试手动框选';
+      btn.disabled = false;
+      btn.textContent = '智能识别所有 Logo';
+      return;
+    }
+
+    // ===== 每行左侧找Logo图标 =====
+    const detectedLogos = [];
+
+    bands.forEach(band => {
+      const bandH = band.h;
+      const scanW = Math.floor(natW * 0.4);
+
+      // 找内容开始的x（包括灰色边框线）
+      let contentStartX = -1;
+      for (let x = 0; x < scanW; x++) {
+        let nonBgInCol = 0;
+        const stepY = Math.max(1, Math.floor(bandH / 50));
+        let total = 0;
+        for (let y = band.top; y < band.bottom; y += stepY) {
+          const [r, g, b] = getP(x, y);
+          if (isContent(r, g, b)) nonBgInCol++;
+          total++;
+        }
+        if (nonBgInCol / total > 0.08) {
+          contentStartX = x;
+          break;
+        }
+      }
+
+      if (contentStartX === -1) return;
+
+      // 找垂直边界
+      let topY = band.bottom, bottomY = band.top;
+      for (let y = band.top; y < band.bottom; y++) {
+        for (let x = contentStartX; x < Math.min(contentStartX + scanW, natW); x += 2) {
+          const [r, g, b] = getP(x, y);
+          if (isContent(r, g, b)) {
+            if (y < topY) topY = y;
+            if (y > bottomY) bottomY = y;
+            break;
+          }
+        }
+      }
+
+      const contentH = bottomY - topY;
+      if (contentH < 20) return;
+
+      // 列内容检测（包括灰色边框）
+      const colHasContent = [];
+      for (let x = contentStartX; x < scanW; x++) {
+        let nonBg = 0;
+        let total = 0;
+        for (let y = topY; y <= bottomY; y += 2) {
+          const [r, g, b] = getP(x, y);
+          if (isContent(r, g, b)) nonBg++;
+          total++;
+        }
+        colHasContent.push(nonBg / Math.max(total, 1) > 0.06);
+      }
+
+      // 找第一个内容块
+      let logoStartX = -1, logoEndX = -1;
+      let gapCount = 0;
+      const maxGap = 6;
+      
+      for (let i = 0; i < colHasContent.length; i++) {
+        if (colHasContent[i]) {
+          if (logoStartX === -1) logoStartX = i;
+          logoEndX = i;
+          gapCount = 0;
+        } else {
+          if (logoStartX !== -1) {
+            gapCount++;
+            if (gapCount > maxGap) break;
+          }
+        }
+      }
+
+      if (logoStartX === -1) return;
+
+      const logoX = contentStartX + logoStartX;
+      const logoRight = contentStartX + logoEndX;
+      const logoW = logoRight - logoX;
+
+      if (logoW < 20) return;
+
+      // 精细化边界（包括灰色边框线）
+      let fMinX = logoRight, fMaxX = logoX, fMinY = bottomY, fMaxY = topY;
+      for (let y = topY; y <= bottomY; y++) {
+        for (let x = logoX; x <= logoRight; x++) {
+          const [r, g, b] = getP(x, y);
+          if (isContent(r, g, b)) {
+            if (x < fMinX) fMinX = x;
+            if (x > fMaxX) fMaxX = x;
+            if (y < fMinY) fMinY = y;
+            if (y > fMaxY) fMaxY = y;
+          }
+        }
+      }
+
+      let finalW = fMaxX - fMinX;
+      let finalH = fMaxY - fMinY;
+      if (finalW < 20 || finalH < 20) return;
+
+      // ===== 关键改进：检测灰色边框来扩展Logo边界 =====
+      // 如果检测到的内容边界附近有灰色边框线，说明Logo有白色背景+灰色边框
+      // 需要从灰色边框向内扫描，把整个圆角矩形包含进来
+      
+      // 检查四周是否有灰色边框
+      let hasGrayBorder = false;
+      const borderCheckRange = 3; // 检查边界附近3px
+      
+      // 检查顶边
+      for (let x = fMinX; x <= fMaxX; x += Math.max(1, Math.floor(finalW / 20))) {
+        for (let dy = -borderCheckRange; dy <= borderCheckRange; dy++) {
+          const [r, g, b] = getP(x, fMinY + dy);
+          if (isGrayBorder(r, g, b)) { hasGrayBorder = true; break; }
+        }
+        if (hasGrayBorder) break;
+      }
+      if (!hasGrayBorder) {
+        // 检查左边
+        for (let y = fMinY; y <= fMaxY; y += Math.max(1, Math.floor(finalH / 20))) {
+          for (let dx = -borderCheckRange; dx <= borderCheckRange; dx++) {
+            const [r, g, b] = getP(fMinX + dx, y);
+            if (isGrayBorder(r, g, b)) { hasGrayBorder = true; break; }
+          }
+          if (hasGrayBorder) break;
+        }
+      }
+
+      if (hasGrayBorder) {
+        // 有灰色边框 — 从边框外扩，找到完整的圆角矩形
+        // 方法：从当前边界向外扩展，直到找不到灰色边框线
+        const expandMax = 15;
+        
+        // 向上扩展
+        for (let dy = 1; dy <= expandMax; dy++) {
+          let foundBorder = false;
+          for (let x = fMinX; x <= fMaxX; x += Math.max(1, Math.floor(finalW / 30))) {
+            const [r, g, b] = getP(x, fMinY - dy);
+            if (isGrayBorder(r, g, b) || !isBg(r, g, b)) { foundBorder = true; break; }
+          }
+          if (foundBorder) fMinY -= 1;
+          else break;
+        }
+        // 向下扩展
+        for (let dy = 1; dy <= expandMax; dy++) {
+          let foundBorder = false;
+          for (let x = fMinX; x <= fMaxX; x += Math.max(1, Math.floor(finalW / 30))) {
+            const [r, g, b] = getP(x, fMaxY + dy);
+            if (isGrayBorder(r, g, b) || !isBg(r, g, b)) { foundBorder = true; break; }
+          }
+          if (foundBorder) fMaxY += 1;
+          else break;
+        }
+        // 向左扩展
+        for (let dx = 1; dx <= expandMax; dx++) {
+          let foundBorder = false;
+          for (let y = fMinY; y <= fMaxY; y += Math.max(1, Math.floor(finalH / 30))) {
+            const [r, g, b] = getP(fMinX - dx, y);
+            if (isGrayBorder(r, g, b) || !isBg(r, g, b)) { foundBorder = true; break; }
+          }
+          if (foundBorder) fMinX -= 1;
+          else break;
+        }
+        // 向右扩展
+        for (let dx = 1; dx <= expandMax; dx++) {
+          let foundBorder = false;
+          for (let y = fMinY; y <= fMaxY; y += Math.max(1, Math.floor(finalH / 30))) {
+            const [r, g, b] = getP(fMaxX + dx, y);
+            if (isGrayBorder(r, g, b) || !isBg(r, g, b)) { foundBorder = true; break; }
+          }
+          if (foundBorder) fMaxX += 1;
+          else break;
+        }
+        
+        finalW = fMaxX - fMinX;
+        finalH = fMaxY - fMinY;
+      }
+
+      // 取方形
+      const cx = (fMinX + fMaxX) / 2;
+      const cy = (fMinY + fMaxY) / 2;
+      const size = Math.max(finalW, finalH);
+      const aspect = Math.min(finalW, finalH) / Math.max(finalW, finalH);
+      if (aspect < 0.45) return;
+
+      detectedLogos.push({
+        cx, cy, size, w: finalW, h: finalH
+      });
+    });
+
+    if (detectedLogos.length === 0) {
+      status.textContent = '未检测到Logo图标，请尝试手动框选';
+      btn.disabled = false;
+      btn.textContent = '智能识别所有 Logo';
+      return;
+    }
+
+    // Step 3: 统一Logo尺寸
+    const sizes = detectedLogos.map(l => l.size).sort((a, b) => a - b);
+    const medianSize = sizes[Math.floor(sizes.length / 2)];
+
+    const filtered = detectedLogos.filter(l => {
+      return l.size > medianSize * 0.5 && l.size < medianSize * 1.8;
+    });
+
+    if (filtered.length === 0) {
+      status.textContent = '未检测到Logo，请尝试手动框选';
+      btn.disabled = false;
+      btn.textContent = '智能识别所有 Logo';
+      return;
+    }
+
+    // ===== 去重：如果两个Logo中心点距离太近，只保留一个 =====
+    const deduped = [];
+    const minDist = medianSize * 0.5; // 中心距离小于半个Logo尺寸的视为重复
+    filtered.forEach(logo => {
+      const isDup = deduped.some(existing => {
+        const dx = logo.cx - existing.cx;
+        const dy = logo.cy - existing.cy;
+        return Math.sqrt(dx * dx + dy * dy) < minDist;
+      });
+      if (!isDup) deduped.push(logo);
+    });
+
+    const uniformSize = medianSize;
+    const pad = Math.ceil(uniformSize * 0.08);
+
+    const finalLogos = deduped.map(logo => {
+      const half = Math.ceil(uniformSize / 2) + pad;
+      return {
+        x: Math.max(0, Math.floor(logo.cx - half)),
+        y: Math.max(0, Math.floor(logo.cy - half)),
+        w: Math.min(half * 2, natW),
+        h: Math.min(half * 2, natH)
+      };
+    });
+
+    status.textContent = `检测到 ${finalLogos.length} 个 Logo，正在裁剪并识别...`;
+
+    const scaleX = dispW / natW;
+    const scaleY = dispH / natH;
+
+    let processed = 0;
+    finalLogos.forEach((logo, i) => {
+      const displayRect = {
+        x: logo.x * scaleX,
+        y: logo.y * scaleY,
+        w: logo.w * scaleX,
+        h: logo.h * scaleY
+      };
+      // 找到该Logo所在的band，传递整行信息用于分类区域裁剪
+      const logoCY = logo.y + logo.h / 2;
+      let matchedBand = null;
+      for (const band of bands) {
+        if (logoCY >= band.top && logoCY <= band.bottom) {
+          matchedBand = band;
+          break;
+        }
+      }
+      setTimeout(() => {
+        extractCropRegion(displayRect, matchedBand);
+        processed++;
+        if (processed === finalLogos.length) {
+          status.textContent = `完成！共识别 ${finalLogos.length} 个 Logo`;
+          btn.disabled = false;
+          btn.textContent = '智能识别所有 Logo';
+        }
+      }, i * 300);
+    });
+  }
+
+  // 自动裁切白边
+  function trimWhiteBorder(canvas) {
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    const imgData = ctx.getImageData(0, 0, w, h);
+    const px = imgData.data;
+
+    function isWhite(x, y) {
+      const i = (y * w + x) * 4;
+      return px[i] > 240 && px[i+1] > 240 && px[i+2] > 240;
+    }
+
+    let top = 0, bottom = h - 1, left = 0, right = w - 1;
+
+    // 从上向下找
+    outer1: for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x += 2) {
+        if (!isWhite(x, y)) { top = y; break outer1; }
+      }
+    }
+    // 从下向上找
+    outer2: for (let y = h - 1; y >= top; y--) {
+      for (let x = 0; x < w; x += 2) {
+        if (!isWhite(x, y)) { bottom = y; break outer2; }
+      }
+    }
+    // 从左向右找
+    outer3: for (let x = 0; x < w; x++) {
+      for (let y = top; y <= bottom; y += 2) {
+        if (!isWhite(x, y)) { left = x; break outer3; }
+      }
+    }
+    // 从右向左找
+    outer4: for (let x = w - 1; x >= left; x--) {
+      for (let y = top; y <= bottom; y += 2) {
+        if (!isWhite(x, y)) { right = x; break outer4; }
+      }
+    }
+
+    const cw = right - left + 1;
+    const ch = bottom - top + 1;
+
+    // 如果裁切后面积太小（< 原面积30%），则不裁
+    if (cw * ch < w * h * 0.3) return canvas;
+
+    // 加少量padding（2px）
+    const pad = 2;
+    const fx = Math.max(0, left - pad);
+    const fy = Math.max(0, top - pad);
+    const fw = Math.min(w - fx, cw + pad * 2);
+    const fh = Math.min(h - fy, ch + pad * 2);
+
+    // 生成正方形（居中）
+    const size = Math.max(fw, fh);
+    const out = document.createElement('canvas');
+    out.width = size;
+    out.height = size;
+    const octx = out.getContext('2d');
+    octx.fillStyle = '#ffffff';
+    octx.fillRect(0, 0, size, size);
+    const ox = Math.floor((size - fw) / 2);
+    const oy = Math.floor((size - fh) / 2);
+    octx.drawImage(canvas, fx, fy, fw, fh, ox, oy, fw, fh);
+    return out;
+  }
+
+  function extractCropRegion(rect, bandInfo) {
+    const scaleX = cropImage.naturalWidth / cropImage.clientWidth;
+    const scaleY = cropImage.naturalHeight / cropImage.clientHeight;
+
+    // 裁剪 Logo 图片
+    const canvas = document.createElement('canvas');
+    canvas.width = rect.w * scaleX;
+    canvas.height = rect.h * scaleY;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(cropImage,
+      rect.x * scaleX, rect.y * scaleY, rect.w * scaleX, rect.h * scaleY,
+      0, 0, canvas.width, canvas.height
+    );
+
+    // 自动裁切白边，让Logo居中
+    const trimmed = trimWhiteBorder(canvas);
+    const src = trimmed.toDataURL('image/png');
+    const index = cropItems.length;
+    cropItems.push({ src, name: '识别中...', category: '识别中...', subcategory: '', product: currentProduct, region: currentRegion, ocrDone: false });
+    renderCropList();
+    updateGenerateBar();
+
+    // ===== OCR识别App名称 =====
+    const logoNatW = rect.w * scaleX;
+    const logoNatH = rect.h * scaleY;
+    const logoNatX = rect.x * scaleX;
+    const logoNatY = rect.y * scaleY;
+    
+    // 名称区域：Logo右侧，宽度取 Logo宽度×3 或到图片45%处（取较大值确保不为负）
+    const nameX = logoNatX + logoNatW + 5;
+    const nameY = bandInfo ? bandInfo.top : logoNatY;
+    const nameRightLimit = Math.max(cropImage.naturalWidth * 0.45, logoNatX + logoNatW + logoNatW * 2);
+    const nameW = Math.max(logoNatW * 1.5, Math.min(logoNatW * 4, nameRightLimit - nameX));
+    const nameH = bandInfo ? (bandInfo.bottom - bandInfo.top) : logoNatH;
+
+    // 分类区域：使用band信息（整行）来精确确定分类标签位置
+    // 分类标签通常在整行的右侧50%区域（从图片中间到右边）
+    let catX, catY, catW, catH;
+    if (bandInfo) {
+      // 有band信息：使用整行的右半部分作为分类区域
+      const bandMidX = Math.floor(cropImage.naturalWidth * 0.45); // 从45%处开始
+      catX = bandMidX;
+      catY = bandInfo.top;
+      catW = cropImage.naturalWidth - bandMidX;
+      catH = bandInfo.bottom - bandInfo.top;
+    } else {
+      // 无band信息：fallback到基于Logo位置的估算
+      const catRegionW = Math.floor(cropImage.naturalWidth * 0.50);
+      catX = cropImage.naturalWidth - catRegionW;
+      const catPadY = Math.floor(logoNatH * 0.25);
+      catY = Math.max(0, logoNatY - catPadY);
+      catW = catRegionW;
+      catH = Math.min(logoNatH + catPadY * 2, cropImage.naturalHeight - catY);
+    }
+
+    function cleanOcrText(raw) {
+      if (!raw) return '';
+      let cleaned = raw.replace(/([\u4e00-\u9fa5])\s+([\u4e00-\u9fa5])/g, '$1$2');
+      cleaned = cleaned.replace(/([\u4e00-\u9fa5])\s+([\u4e00-\u9fa5])/g, '$1$2');
+      cleaned = cleaned.replace(/([\u4e00-\u9fa5])\s+(\d)/g, '$1$2');
+      cleaned = cleaned.replace(/(\d)\s+([\u4e00-\u9fa5])/g, '$1$2');
+      cleaned = cleaned.replace(/([\u4e00-\u9fa5])\s+([a-zA-Z])/g, '$1$2');
+      cleaned = cleaned.replace(/([a-zA-Z])\s+([\u4e00-\u9fa5])/g, '$1$2');
+      cleaned = cleaned.replace(/\s{2,}/g, ' ');
+      cleaned = cleaned.trim();
+      cleaned = cleaned.replace(/[|\\\/\[\]{}()（）<>《》「」【】~`^*#@$%&+=。，、；：？！""''…—·•]+/g, '');
+      cleaned = cleaned.replace(/\.{2,}/g, '');
+      return cleaned.trim();
+    }
+
+    function correctOcrName(ocrName) {
+      if (!ocrName || ocrName.length < 1) return ocrName;
+
+      // 0. 直接匹配别名映射表（优先级最高）
+      if (OCR_ALIAS_MAP[ocrName]) return OCR_ALIAS_MAP[ocrName];
+      // 大小写不敏感匹配别名
+      const upperName = ocrName.toUpperCase();
+      for (const [alias, correct] of Object.entries(OCR_ALIAS_MAP)) {
+        if (alias.toUpperCase() === upperName) return correct;
+      }
+      // 别名包含检查（要求至少3个字符才做包含匹配，避免短字符串误匹配）
+      for (const [alias, correct] of Object.entries(OCR_ALIAS_MAP)) {
+        if (ocrName.length >= 2 && ocrName.includes(alias) && alias.length >= 2) return correct;
+        if (alias.length >= 3 && alias.includes(ocrName) && ocrName.length >= 2) return correct;
+      }
+
+      // 1. 精确匹配已知名称
+      const knownNames = Object.keys(APP_NAME_CATEGORY_MAP);
+      if (knownNames.includes(ocrName)) return ocrName;
+
+      // 2. 包含关系匹配
+      for (const known of knownNames) {
+        if (ocrName.includes(known)) return known;
+        if (known.includes(ocrName) && ocrName.length >= 2) return known;
+      }
+
+      // 3. 编辑距离纠错（收紧阈值，避免误匹配）
+      let bestMatch = ocrName;
+      let bestDist = Infinity;
+      for (const known of knownNames) {
+        if (Math.abs(known.length - ocrName.length) > 2) continue;
+        const dist = editDistance(ocrName, known);
+        const threshold = known.length <= 2 ? 0 : (known.length <= 4 ? 1 : 2);
+        if (dist <= threshold && dist < bestDist) {
+          bestDist = dist;
+          bestMatch = known;
+        }
+      }
+      return bestMatch;
+    }
+
+    function editDistance(a, b) {
+      const m = a.length, n = b.length;
+      const dp = Array.from({length: m + 1}, () => Array(n + 1).fill(0));
+      for (let i = 0; i <= m; i++) dp[i][0] = i;
+      for (let j = 0; j <= n; j++) dp[0][j] = j;
+      for (let i = 1; i <= m; i++) {
+        for (let j = 1; j <= n; j++) {
+          dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1] : Math.min(dp[i-1][j-1], dp[i-1][j], dp[i][j-1]) + 1;
+        }
+      }
+      return dp[m][n];
+    }
+
+    // 从OCR文本中提取 "大分类 > 小分类" 格式
+    function extractCategoryFromOcr(text) {
+      if (!text) return null;
+      // 预处理：合并中文字符间的空格（OCR常见问题）
+      let preprocessed = text.replace(/([\u4e00-\u9fa5])\s+([\u4e00-\u9fa5])/g, '$1$2');
+      preprocessed = preprocessed.replace(/([\u4e00-\u9fa5])\s+([\u4e00-\u9fa5])/g, '$1$2');
+      // 再次合并（处理3个字被拆开的情况）
+      preprocessed = preprocessed.replace(/([\u4e00-\u9fa5])\s+([\u4e00-\u9fa5])/g, '$1$2');
+      // 合并所有文本（有时分类被拆成多行）
+      const rawText = preprocessed.replace(/\n+/g, ' ').replace(/\s{2,}/g, ' ').trim();
+      const lines = preprocessed.split('\n').map(l => l.trim()).filter(l => l);
+
+      // 所有小分类展平用于直接搜索
+      const allMinors = {};
+      for (const [maj, subs] of Object.entries(CATEGORY_TREE)) {
+        subs.forEach(sub => { allMinors[sub] = maj; });
+      }
+
+      // 验证大分类是否存在于CATEGORY_TREE（更宽松匹配）
+      function isValidMajor(name) {
+        if (!name) return false;
+        if (CATEGORY_TREE[name]) return true;
+        for (const cat of MAJOR_CATEGORIES) {
+          if (cat.includes(name) || name.includes(cat)) return true;
+          if (name.length >= 2 && editDistance(name, cat) <= 2) return true;
+        }
+        return false;
+      }
+
+      // 修正大分类名称（更宽松匹配）
+      function fixMajor(name) {
+        if (CATEGORY_TREE[name]) return name;
+        let best = name, bestDist = Infinity;
+        for (const cat of MAJOR_CATEGORIES) {
+          if (cat === name) return cat;
+          if (cat.includes(name) || name.includes(cat)) return cat;
+          const d = editDistance(name, cat);
+          if (d <= 2 && d < bestDist) { bestDist = d; best = cat; }
+        }
+        return best;
+      }
+
+      // 修正小分类名称（更宽松匹配）
+      function fixMinor(major, minor) {
+        if (!major || !CATEGORY_TREE[major]) return minor;
+        const subs = CATEGORY_TREE[major];
+        if (subs.includes(minor)) return minor;
+        let best = minor, bestDist = Infinity;
+        for (const sub of subs) {
+          if (sub.includes(minor) || minor.includes(sub)) return sub;
+          const d = editDistance(minor, sub);
+          if (d <= 2 && d < bestDist) { bestDist = d; best = sub; }
+        }
+        return best;
+      }
+
+      // 策略0：检查OCR文本中是否直接包含 "大分类小分类"（分隔符被吞掉的情况）
+      // 例如 OCR识别成 "金融理财银行" 或 "游戏射击"
+      const cleanedAll = rawText.replace(/[^a-zA-Z\u4e00-\u9fa5]/g, '');
+      for (const cat of MAJOR_CATEGORIES) {
+        const idx = cleanedAll.indexOf(cat);
+        if (idx !== -1) {
+          const afterCat = cleanedAll.substring(idx + cat.length);
+          if (CATEGORY_TREE[cat]) {
+            for (const sub of CATEGORY_TREE[cat]) {
+              if (afterCat.startsWith(sub) || afterCat.includes(sub)) {
+                return { major: cat, minor: sub };
+              }
+            }
+            // 模糊匹配小分类
+            if (afterCat.length >= 2) {
+              const candidate = afterCat.substring(0, Math.min(6, afterCat.length));
+              for (const sub of CATEGORY_TREE[cat]) {
+                if (sub !== '其他' && editDistance(candidate.substring(0, sub.length), sub) <= 1) {
+                  return { major: cat, minor: sub };
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // 策略1：匹配 "大分类 > 小分类" 格式（多种分隔符）
+      // 扩展分隔符：> 》 ➤ ▸ ► → - / | : ） ) ] 】及其OCR变体
+      const sepPattern = /([\u4e00-\u9fa5A-Za-z]{2,8})\s*[>》➤▸►→\-\/\|:：\)\）\]】\.·,，;；\s]+\s*([\u4e00-\u9fa5A-Za-z]{2,8})/;
+      for (const line of lines) {
+        const match = line.match(sepPattern);
+        if (match) {
+          let major = match[1].trim();
+          let minor = match[2].trim();
+          if (isValidMajor(major)) {
+            major = fixMajor(major);
+            minor = fixMinor(major, minor);
+            return { major, minor };
+          }
+          // 也许OCR把大小分类顺序反了，或者匹配到的不是大分类
+          // 尝试检查minor是否是大分类
+          if (isValidMajor(minor)) {
+            const fixedMajor = fixMajor(minor);
+            const fixedMinor = fixMinor(fixedMajor, major);
+            return { major: fixedMajor, minor: fixedMinor };
+          }
+        }
+      }
+
+      // 策略1b：也对合并后的整行文本尝试
+      const matchFull = rawText.match(sepPattern);
+      if (matchFull) {
+        let major = matchFull[1].trim();
+        let minor = matchFull[2].trim();
+        if (isValidMajor(major)) {
+          major = fixMajor(major);
+          minor = fixMinor(major, minor);
+          return { major, minor };
+        }
+      }
+
+      // 策略2：在所有文本中直接搜索已知的大分类名
+      const fullText = rawText.replace(/[^a-zA-Z\u4e00-\u9fa5\s]/g, ' ');
+      for (const cat of MAJOR_CATEGORIES) {
+        if (fullText.includes(cat)) {
+          // 在大分类后面找小分类
+          const afterIdx = fullText.indexOf(cat) + cat.length;
+          const afterText = fullText.substring(afterIdx).trim();
+          // 也看大分类前面的文本
+          const beforeText = fullText.substring(0, fullText.indexOf(cat)).trim();
+          // 在大分类后面的文本中搜索已知小分类
+          if (CATEGORY_TREE[cat]) {
+            for (const sub of CATEGORY_TREE[cat]) {
+              if (afterText.includes(sub)) {
+                return { major: cat, minor: sub };
+              }
+            }
+            // 也在前面的文本中找小分类（OCR可能把顺序搞反）
+            for (const sub of CATEGORY_TREE[cat]) {
+              if (beforeText.includes(sub)) {
+                return { major: cat, minor: sub };
+              }
+            }
+          }
+          // 取第一个2-6字的词作为小分类
+          const firstWord = afterText.match(/[\u4e00-\u9fa5A-Za-z]{2,6}/);
+          if (firstWord) {
+            const minor = fixMinor(cat, firstWord[0]);
+            return { major: cat, minor };
+          }
+          return { major: cat, minor: '' };
+        }
+      }
+
+      // 策略3：模糊匹配大分类（OCR可能有错字）
+      const words = fullText.match(/[\u4e00-\u9fa5]{2,8}/g) || [];
+      for (const word of words) {
+        for (const cat of MAJOR_CATEGORIES) {
+          const dist = editDistance(word, cat);
+          if (dist <= 1 || (word.length >= 3 && cat.length >= 3 && dist <= 2)) {
+            // 找到模糊匹配的大分类，继续找小分类
+            const fixedMajor = cat;
+            const afterIdx = fullText.indexOf(word) + word.length;
+            const afterText = fullText.substring(afterIdx).trim();
+            if (CATEGORY_TREE[fixedMajor]) {
+              for (const sub of CATEGORY_TREE[fixedMajor]) {
+                if (afterText.includes(sub)) {
+                  return { major: fixedMajor, minor: sub };
+                }
+              }
+              // 模糊匹配小分类
+              const afterWords = afterText.match(/[\u4e00-\u9fa5A-Za-z]{2,6}/g) || [];
+              for (const aw of afterWords) {
+                for (const sub of CATEGORY_TREE[fixedMajor]) {
+                  if (editDistance(aw, sub) <= 1) {
+                    return { major: fixedMajor, minor: sub };
+                  }
+                }
+              }
+            }
+            return { major: fixedMajor, minor: '' };
+          }
+        }
+      }
+
+      // 策略4：直接搜索已知小分类名，反推大分类
+      for (const word of words) {
+        for (const [sub, maj] of Object.entries(allMinors)) {
+          if (sub === '其他') continue;
+          if (word === sub || (word.length >= 2 && editDistance(word, sub) <= 1)) {
+            return { major: maj, minor: sub };
+          }
+        }
+      }
+
+      // 策略5：英文词匹配（某些分类含英文）
+      const engWords = fullText.match(/[A-Za-z]{2,}/gi) || [];
+      for (const ew of engWords) {
+        for (const [sub, maj] of Object.entries(allMinors)) {
+          if (sub === '其他') continue;
+          if (ew.toLowerCase() === sub.toLowerCase()) {
+            return { major: maj, minor: sub };
+          }
+        }
+      }
+
+      return null;
+    }
+
+    // 并行OCR：名称 + 分类
+    const ocrPromises = [];
+
+    // OCR 1: 识别App名称
+    if (nameW > 10 && nameH > 5) {
+      // 准备原始彩色图片（仅放大，不二值化） —— 给 OCR.space
+      function prepareOriginalCanvas(srcX, srcY, srcW, srcH, scale) {
+        const c = document.createElement('canvas');
+        c.width = Math.round(srcW * scale);
+        c.height = Math.round(srcH * scale);
+        const cCtx = c.getContext('2d');
+        cCtx.imageSmoothingEnabled = true;
+        cCtx.imageSmoothingQuality = 'high';
+        cCtx.fillStyle = '#ffffff';
+        cCtx.fillRect(0, 0, c.width, c.height);
+        cCtx.drawImage(cropImage, srcX, srcY, srcW, srcH, 0, 0, c.width, c.height);
+        return c.toDataURL('image/png');
+      }
+
+      // 准备二值化图片 —— 给 Tesseract 降级用
+      function prepareNameCanvas(srcX, srcY, srcW, srcH, scale, threshold) {
+        const c = document.createElement('canvas');
+        c.width = Math.round(srcW * scale);
+        c.height = Math.round(srcH * scale);
+        const cCtx = c.getContext('2d');
+        cCtx.imageSmoothingEnabled = true;
+        cCtx.imageSmoothingQuality = 'high';
+        cCtx.fillStyle = '#ffffff';
+        cCtx.fillRect(0, 0, c.width, c.height);
+        cCtx.drawImage(cropImage, srcX, srcY, srcW, srcH, 0, 0, c.width, c.height);
+        const imgData = cCtx.getImageData(0, 0, c.width, c.height);
+        const pxData = imgData.data;
+        for (let i = 0; i < pxData.length; i += 4) {
+          const r = pxData[i], g = pxData[i+1], b = pxData[i+2];
+          const gray = r * 0.299 + g * 0.587 + b * 0.114;
+          const val = gray < threshold ? 0 : 255;
+          pxData[i] = pxData[i+1] = pxData[i+2] = val;
+        }
+        cCtx.putImageData(imgData, 0, 0);
+        return c.toDataURL('image/png');
+      }
+
+      const nameOriginal = prepareOriginalCanvas(nameX, nameY, nameW, nameH, 4);
+      const nameProcessed = prepareNameCanvas(nameX, nameY, nameW, nameH, 4, 128);
+
+      const nameOcrPromise = doOCR(nameOriginal, nameProcessed).then(text => {
+        console.log('[名称OCR原始文本]', text);
+
+        if (!text) return { type: 'name', value: '' };
+
+        // 后处理：去垃圾字符
+        let cleaned = postProcessOcrText(text);
+        
+        const lines = cleaned.split('\n').map(l => l.trim()).filter(l => l);
+        if (lines.length === 0) return { type: 'name', value: '' };
+        
+        let name = lines[0];
+        // 如果第一行太短，拼接第二行
+        if (name.length <= 1 && lines.length > 1) {
+          name = lines[0] + lines[1];
+        }
+        
+        // 限制长度
+        if (name.length > 10) {
+          const parts = name.split(/\s+/);
+          name = parts[0];
+        }
+        if (name.length > 8) {
+          name = name.substring(0, 8);
+        }
+        
+        // 用已知App名称纠错
+        name = correctOcrName(name);
+        
+        return { type: 'name', value: name };
+      }).catch(() => ({ type: 'name', value: '' }));
+
+      ocrPromises.push(nameOcrPromise);
+    }
+
+    // OCR 2: 识别右侧分类标签
+    if (catW > 10 && catH > 5) {
+      // 原始彩色图片（给 OCR.space）
+      function prepareCatOriginal(srcX, srcY, srcW, srcH, scale) {
+        const c = document.createElement('canvas');
+        c.width = Math.round(srcW * scale);
+        c.height = Math.round(srcH * scale);
+        const cCtx = c.getContext('2d');
+        cCtx.imageSmoothingEnabled = true;
+        cCtx.imageSmoothingQuality = 'high';
+        cCtx.fillStyle = '#ffffff';
+        cCtx.fillRect(0, 0, c.width, c.height);
+        cCtx.drawImage(cropImage, srcX, srcY, srcW, srcH, 0, 0, c.width, c.height);
+        return c.toDataURL('image/png');
+      }
+
+      // 二值化图片（给 Tesseract 降级用）
+      function prepareOcrCanvas(srcX, srcY, srcW, srcH, scale, threshold, detectBlue) {
+        const c = document.createElement('canvas');
+        c.width = Math.round(srcW * scale);
+        c.height = Math.round(srcH * scale);
+        const cCtx = c.getContext('2d');
+        cCtx.imageSmoothingEnabled = true;
+        cCtx.imageSmoothingQuality = 'high';
+        cCtx.fillStyle = '#ffffff';
+        cCtx.fillRect(0, 0, c.width, c.height);
+        cCtx.drawImage(cropImage, srcX, srcY, srcW, srcH, 0, 0, c.width, c.height);
+        const imgData = cCtx.getImageData(0, 0, c.width, c.height);
+        const pxData = imgData.data;
+        for (let i = 0; i < pxData.length; i += 4) {
+          const r = pxData[i], g = pxData[i+1], b = pxData[i+2];
+          const gray = r * 0.299 + g * 0.587 + b * 0.114;
+          let isText = gray < threshold;
+          if (detectBlue) {
+            const isBlue = (b > 120 && b > r * 1.3 && b > g * 1.1);
+            isText = isText || isBlue;
+          }
+          const isGrayText = (gray < 180 && Math.abs(r - g) < 30 && Math.abs(g - b) < 30 && Math.abs(r - b) < 30);
+          isText = isText || (isGrayText && gray < threshold + 40);
+          const val = isText ? 0 : 255;
+          pxData[i] = pxData[i+1] = pxData[i+2] = val;
+        }
+        cCtx.putImageData(imgData, 0, 0);
+        return c.toDataURL('image/png');
+      }
+
+      const catOriginal = prepareCatOriginal(catX, catY, catW, catH, 5);
+      const catProcessed = prepareOcrCanvas(catX, catY, catW, catH, 5, 155, true);
+
+      const catOcrPromise = doOCR(catOriginal, catProcessed).then(text => {
+        console.log('[分类OCR原始文本]', text);
+        
+        if (!text) return { type: 'category', value: null };
+        
+        const cat = extractCategoryFromOcr(text);
+        console.log('[分类OCR最终结果]', cat);
+        return { type: 'category', value: cat };
+      }).catch((e) => { 
+        console.warn('[分类OCR失败]', e); 
+        return { type: 'category', value: null }; 
+      });
+
+      ocrPromises.push(catOcrPromise);
+    }
+
+    if (ocrPromises.length > 0) {
+      Promise.all(ocrPromises).then(results => {
+        if (index >= cropItems.length) return;
+
+        let name = '';
+        let ocrCat = null;
+
+        results.forEach(r => {
+          if (r.type === 'name') name = r.value;
+          if (r.type === 'category') ocrCat = r.value;
+        });
+
+        cropItems[index].name = name || '未命名Logo';
+
+        // 根据App名称自动猜测地区（如果猜到了就用猜测值，否则用批量设置的区域）
+        const guessedRegion = guessRegionByName(name);
+        cropItems[index].region = guessedRegion || currentRegion;
+
+        // 分类策略：仅使用OCR识别结果，不用映射表猜测（避免"幻觉"）
+        // OCR没识别到分类时留空，让用户手动选择，绝不给出可能错误的分类
+        if (ocrCat && ocrCat.major) {
+          cropItems[index].category = ocrCat.major;
+          cropItems[index].subcategory = ocrCat.minor || '';
+        }
+
+        cropItems[index].ocrDone = true;
+        renderCropList();
+      });
+    } else {
+      cropItems[index].name = '未命名Logo';
+      cropItems[index].category = '';
+      cropItems[index].subcategory = '';
+      cropItems[index].ocrDone = true;
+      renderCropList();
+    }
+  }
+
+  function renderCropList() {
+    cropCountEl.textContent = cropItems.length;
+    cropList.innerHTML = '';
+    cropItems.forEach((item, i) => {
+      const div = document.createElement('div');
+      div.className = 'crop-item';
+      const statusHtml = item.ocrDone === false
+        ? '<div class="ocr-status">正在识别...</div>'
+        : '';
+      const disabled = item.ocrDone === false ? 'disabled' : '';
+
+      // 大分类选项
+      let majorOptions = '<option value="">大分类</option>';
+      MAJOR_CATEGORIES.forEach(cat => {
+        const selected = item.category === cat ? 'selected' : '';
+        majorOptions += `<option value="${cat}" ${selected}>${cat}</option>`;
+      });
+
+      // 小分类选项（基于当前大分类）
+      let minorOptions = '<option value="">小分类</option>';
+      if (item.category && CATEGORY_TREE[item.category]) {
+        CATEGORY_TREE[item.category].forEach(sub => {
+          const selected = item.subcategory === sub ? 'selected' : '';
+          minorOptions += `<option value="${sub}" ${selected}>${sub}</option>`;
+        });
+      }
+
+      // 地区选项
+      let regionOptions = '<option value="">地区</option>';
+      REGIONS.forEach(r => {
+        const selected = item.region === r ? 'selected' : '';
+        regionOptions += `<option value="${r}" ${selected}>${r}</option>`;
+      });
+
+      div.innerHTML = `
+        <img src="${item.src}" alt="logo">
+        <div class="tag-group">
+          <span class="tag-product">${item.product || ''}</span>
+          ${item.region ? `<span class="tag-region">${item.region}</span>` : ''}
+        </div>
+        <input type="text" value="${item.name}" placeholder="Logo 名称" data-index="${i}" data-field="name" ${disabled}>
+        <div class="category-group">
+          <select data-index="${i}" data-field="category" ${disabled}>${majorOptions}</select>
+          <select data-index="${i}" data-field="subcategory" ${disabled}>${minorOptions}</select>
+        </div>
+        <select class="region-select" data-index="${i}" data-field="region" ${disabled}>${regionOptions}</select>
+        ${statusHtml}
+        <div class="crop-item-actions">
+          <button class="remove-crop" data-index="${i}">删除</button>
+        </div>
+      `;
+      cropList.appendChild(div);
+    });
+
+    cropList.querySelectorAll('input').forEach(el => {
+      el.addEventListener('input', (e) => {
+        const idx = e.target.dataset.index;
+        cropItems[idx].name = e.target.value;
+        // 自动更新地区猜测
+        const guessedRegion = guessRegionByName(e.target.value);
+        if (guessedRegion) cropItems[idx].region = guessedRegion;
+        const matched = matchCategory(e.target.value);
+        if (matched.major) {
+          cropItems[idx].category = matched.major;
+          cropItems[idx].subcategory = matched.minor;
+        }
+        renderCropList();
+      });
+    });
+    cropList.querySelectorAll('select[data-field="category"]').forEach(el => {
+      el.addEventListener('change', (e) => {
+        const idx = e.target.dataset.index;
+        cropItems[idx].category = e.target.value;
+        cropItems[idx].subcategory = '';
+        renderCropList();
+      });
+    });
+    cropList.querySelectorAll('select[data-field="subcategory"]').forEach(el => {
+      el.addEventListener('change', (e) => {
+        const idx = e.target.dataset.index;
+        cropItems[idx].subcategory = e.target.value;
+      });
+    });
+    cropList.querySelectorAll('select[data-field="region"]').forEach(el => {
+      el.addEventListener('change', (e) => {
+        const idx = e.target.dataset.index;
+        cropItems[idx].region = e.target.value;
+      });
+    });
+    cropList.querySelectorAll('.remove-crop').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        cropItems.splice(e.target.dataset.index, 1);
+        renderCropList();
+        updateGenerateBar();
+      });
+    });
+  }
+
+  // ============ 模式二：直接上传 ============
+  const directUploadArea = document.getElementById('directUploadArea');
+  const directFileInput = document.getElementById('directFileInput');
+  const directGrid = document.getElementById('directGrid');
+  let directItems = [];
+
+  directUploadArea.addEventListener('click', () => directFileInput.click());
+  setupDragDrop(directUploadArea, directFileInput);
+
+  directFileInput.addEventListener('change', (e) => {
+    handleDirectFiles(e.target.files);
+    e.target.value = '';
+  });
+
+  function handleDirectFiles(files) {
+    Array.from(files).filter(f => f.type.startsWith('image/')).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const name = file.name.replace(/\.[^/.]+$/, '');
+        directItems.push({ src: e.target.result, name, product: currentProduct, region: guessRegionByName(name) || currentRegion });
+        renderDirectGrid();
+        updateGenerateBar();
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function renderDirectGrid() {
+    directGrid.innerHTML = '';
+    directItems.forEach((item, i) => {
+      const div = document.createElement('div');
+      div.className = 'direct-item';
+
+      let regionOptions = '<option value="">地区</option>';
+      REGIONS.forEach(r => {
+        const selected = item.region === r ? 'selected' : '';
+        regionOptions += `<option value="${r}" ${selected}>${r}</option>`;
+      });
+
+      div.innerHTML = `
+        <img src="${item.src}" alt="logo">
+        <div class="tag-group">
+          <span class="tag-product">${item.product || ''}</span>
+          ${item.region ? `<span class="tag-region">${item.region}</span>` : ''}
+        </div>
+        <input type="text" value="${item.name}" placeholder="Logo 名称" data-index="${i}">
+        <select class="region-select" data-index="${i}" data-field="region" style="width:100%;padding:5px 8px;border:1px solid #ddd;border-radius:6px;font-size:0.78rem;margin-top:4px;">${regionOptions}</select>
+        <button class="remove-direct" data-index="${i}">删除</button>
+      `;
+      directGrid.appendChild(div);
+    });
+
+    directGrid.querySelectorAll('input').forEach(input => {
+      input.addEventListener('input', (e) => {
+        const idx = e.target.dataset.index;
+        directItems[idx].name = e.target.value;
+        const guessedRegion = guessRegionByName(e.target.value);
+        if (guessedRegion) directItems[idx].region = guessedRegion;
+        renderDirectGrid();
+      });
+    });
+    directGrid.querySelectorAll('select[data-field="region"]').forEach(el => {
+      el.addEventListener('change', (e) => {
+        directItems[e.target.dataset.index].region = e.target.value;
+      });
+    });
+    directGrid.querySelectorAll('.remove-direct').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        directItems.splice(e.target.dataset.index, 1);
+        renderDirectGrid();
+        updateGenerateBar();
+      });
+    });
+  }
+
+  // ============ 生成 / 清空 ============
+  const generateBar = document.getElementById('generateBar');
+  const generateBtn = document.getElementById('generateBtn');
+  const clearAllBtn = document.getElementById('clearAllBtn');
+  const wallSection = document.getElementById('wallSection');
+
+  function updateGenerateBar() {
+    const count = cropItems.length + directItems.length;
+    generateBar.classList.toggle('visible', count > 0);
+  }
+
+  generateBtn.addEventListener('click', () => {
+    logoEntries = [...cropItems, ...directItems];
+    if (logoEntries.length === 0) return;
+    // 自动存入 Logo 库
+    addToLibrary(logoEntries);
+    renderWall();
+    wallSection.classList.add('visible');
+    wallSection.scrollIntoView({ behavior: 'smooth' });
+  });
+
+  // 仅存入 Logo 库（不生成墙）
+  document.getElementById('saveToLibBtn').addEventListener('click', () => {
+    const items = [...cropItems, ...directItems];
+    if (items.length === 0) return;
+    addToLibrary(items);
+    alert(`已将 ${items.length} 个 Logo 存入库中！`);
+    // 切换到库 tab
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.querySelector('[data-tab="library"]').classList.add('active');
+    document.getElementById('tab-library').classList.add('active');
+  });
+
+  clearAllBtn.addEventListener('click', () => {
+    if (!confirm('确定清空全部 Logo 吗？')) return;
+    cropItems = [];
+    directItems = [];
+    renderCropList();
+    renderDirectGrid();
+    updateGenerateBar();
+    wallSection.classList.remove('visible');
+  });
+
+  document.getElementById('backEditBtn').addEventListener('click', () => {
+    wallSection.classList.remove('visible');
+  });
+
+  // ============ Logo 墙渲染 ============
+  const logoWall = document.getElementById('logoWall');
+  const wallLayout = document.getElementById('wallLayout');
+  const wallSize = document.getElementById('wallSize');
+  const wallGap = document.getElementById('wallGap');
+  const wallBg = document.getElementById('wallBg');
+  const wallGrayscale = document.getElementById('wallGrayscale');
+  const wallHideNames = document.getElementById('wallHideNames');
+
+  function renderWall() {
+    const size = wallSize.value + 'px';
+    const gap = wallGap.value + 'px';
+    const layout = wallLayout.value;
+
+    logoWall.innerHTML = '';
+    logoWall.className = 'logo-wall';
+
+    if (layout === 'grid') {
+      logoWall.style.display = 'grid';
+      logoWall.style.gridTemplateColumns = `repeat(auto-fill, minmax(${parseInt(wallSize.value) + 60}px, 1fr))`;
+      logoWall.style.gap = gap;
+      logoWall.style.flexWrap = '';
+      logoWall.style.justifyContent = '';
+    } else {
+      logoWall.classList.add('layout-flex');
+      logoWall.style.display = 'flex';
+      logoWall.style.gap = gap;
+      logoWall.style.gridTemplateColumns = '';
+    }
+
+    logoWall.style.backgroundColor = wallBg.value;
+
+    if (wallGrayscale.checked) logoWall.classList.add('grayscale');
+    if (wallHideNames.checked) logoWall.classList.add('hide-names');
+
+    logoEntries.forEach(entry => {
+      const div = document.createElement('div');
+      div.className = 'logo-entry';
+
+      const img = document.createElement('img');
+      img.src = entry.src;
+      img.alt = entry.name;
+      img.style.width = size;
+      img.style.height = size;
+
+      const nameEl = document.createElement('div');
+      nameEl.className = 'logo-name';
+      nameEl.textContent = entry.name;
+      nameEl.style.maxWidth = parseInt(wallSize.value) + 40 + 'px';
+
+      div.appendChild(img);
+      div.appendChild(nameEl);
+
+      // 产品和地区标签
+      if (entry.product || entry.region) {
+        const tagDiv = document.createElement('div');
+        tagDiv.className = 'tag-group';
+        if (entry.product) tagDiv.innerHTML += `<span class="tag-product">${entry.product}</span>`;
+        if (entry.region) tagDiv.innerHTML += `<span class="tag-region">${entry.region}</span>`;
+        div.appendChild(tagDiv);
+      }
+
+      if (entry.category) {
+        const catEl = document.createElement('div');
+        catEl.className = 'logo-category';
+        catEl.textContent = entry.category;
+        catEl.style.maxWidth = parseInt(wallSize.value) + 40 + 'px';
+        div.appendChild(catEl);
+      }
+      if (entry.subcategory) {
+        const subEl = document.createElement('div');
+        subEl.className = 'logo-subcategory';
+        subEl.textContent = entry.subcategory;
+        subEl.style.maxWidth = parseInt(wallSize.value) + 40 + 'px';
+        div.appendChild(subEl);
+      }
+
+      logoWall.appendChild(div);
+    });
+  }
+
+  wallLayout.addEventListener('change', renderWall);
+  wallSize.addEventListener('input', renderWall);
+  wallGap.addEventListener('input', renderWall);
+  wallBg.addEventListener('input', () => { logoWall.style.backgroundColor = wallBg.value; });
+  wallGrayscale.addEventListener('change', () => {
+    logoWall.classList.toggle('grayscale', wallGrayscale.checked);
+  });
+  wallHideNames.addEventListener('change', () => {
+    logoWall.classList.toggle('hide-names', wallHideNames.checked);
+  });
+
+  // ============ 导出 ============
+  document.getElementById('exportBtn').addEventListener('click', () => {
+    const btn = document.getElementById('exportBtn');
+    btn.textContent = '导出中...';
+    btn.disabled = true;
+
+    const wrapper = document.getElementById('wallWrapper');
+    const rect = wrapper.getBoundingClientRect();
+    const scale = 2;
+    const canvas = document.createElement('canvas');
+    canvas.width = rect.width * scale;
+    canvas.height = rect.height * scale;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(scale, scale);
+    ctx.fillStyle = wallBg.value;
+    ctx.fillRect(0, 0, rect.width, rect.height);
+
+    const entries = document.querySelectorAll('.logo-entry');
+    let loaded = 0;
+    const total = entries.length;
+
+    if (total === 0) {
+      btn.textContent = '导出图片';
+      btn.disabled = false;
+      return;
+    }
+
+    entries.forEach(entry => {
+      const img = entry.querySelector('img');
+      const nameEl = entry.querySelector('.logo-name');
+      const imgRect = img.getBoundingClientRect();
+      const nameRect = nameEl ? nameEl.getBoundingClientRect() : null;
+
+      const image = new Image();
+      image.onload = () => {
+        let dx = imgRect.left - rect.left;
+        let dy = imgRect.top - rect.top;
+
+        if (wallGrayscale.checked) {
+          const tc = document.createElement('canvas');
+          tc.width = imgRect.width * scale;
+          tc.height = imgRect.height * scale;
+          const tctx = tc.getContext('2d');
+          tctx.scale(scale, scale);
+          tctx.filter = 'grayscale(100%)';
+          tctx.drawImage(image, 0, 0, imgRect.width, imgRect.height);
+          ctx.drawImage(tc, dx, dy, imgRect.width, imgRect.height);
+        } else {
+          ctx.drawImage(image, dx, dy, imgRect.width, imgRect.height);
+        }
+
+        if (nameEl && !wallHideNames.checked) {
+          const style = getComputedStyle(nameEl);
+          ctx.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+          ctx.fillStyle = style.color;
+          ctx.textAlign = 'center';
+          const nx = nameRect.left - rect.left + nameRect.width / 2;
+          const ny = nameRect.top - rect.top + parseInt(style.fontSize);
+          ctx.fillText(nameEl.textContent, nx, ny);
+        }
+
+        loaded++;
+        if (loaded === total) {
+          const link = document.createElement('a');
+          link.download = 'logo-wall.png';
+          link.href = canvas.toDataURL('image/png');
+          link.click();
+          btn.textContent = '导出图片';
+          btn.disabled = false;
+        }
+      };
+      image.src = img.src;
+    });
+  });
+
+  // ============ 导出 Excel（带Logo图片） ============
+  async function doExportExcel(items, btnEl) {
+    if (!items || items.length === 0) {
+      alert('没有可导出的数据');
+      return;
+    }
+
+    const origText = btnEl.textContent;
+    btnEl.textContent = '导出中...';
+    btnEl.disabled = true;
+
+    try {
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet('Logo列表');
+
+      // 列宽
+      ws.columns = [
+        { header: 'Logo', key: 'logo', width: 12 },
+        { header: '应用名称', key: 'name', width: 20 },
+        { header: '产品', key: 'product', width: 10 },
+        { header: '地区', key: 'region', width: 14 },
+        { header: '大分类', key: 'major', width: 16 },
+        { header: '小分类', key: 'minor', width: 16 },
+      ];
+
+      // 表头样式
+      const headerRow = ws.getRow(1);
+      headerRow.height = 24;
+      headerRow.eachCell(cell => {
+        cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 12 };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF667EEA' } };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        cell.border = { bottom: { style: 'thin', color: { argb: 'FF999999' } } };
+      });
+
+      // 数据行
+      for (let i = 0; i < items.length; i++) {
+        const entry = items[i];
+        const rowIdx = i + 2;
+        const row = ws.addRow(['', entry.name || '', entry.product || '', entry.region || '', entry.category || '', entry.subcategory || '']);
+        row.height = 55;
+        row.eachCell(cell => {
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          cell.border = {
+            bottom: { style: 'thin', color: { argb: 'FFDDDDDD' } },
+          };
+        });
+
+        // 插入Logo图片
+        if (entry.src && entry.src.startsWith('data:image')) {
+          const base64Data = entry.src.split(',')[1];
+          const ext = entry.src.includes('image/png') ? 'png' : 'jpeg';
+          const imageId = wb.addImage({
+            base64: base64Data,
+            extension: ext,
+          });
+          ws.addImage(imageId, {
+            tl: { col: 0.15, row: rowIdx - 1 + 0.1 },
+            ext: { width: 50, height: 50 },
+          });
+        }
+      }
+
+      // 生成并下载
+      const buffer = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      saveAs(blob, 'logo-wall.xlsx');
+    } catch (err) {
+      console.error('Excel导出失败:', err);
+      alert('导出失败，请重试');
+    }
+
+    btnEl.textContent = origText;
+    btnEl.disabled = false;
+  }
+
+  // Logo墙工具栏的导出按钮
+  document.getElementById('exportExcelBtn').addEventListener('click', () => {
+    doExportExcel(logoEntries, document.getElementById('exportExcelBtn'));
+  });
+
+  // 裁剪区按钮栏的导出按钮（直接从cropItems+directItems导出）
+  document.getElementById('exportExcelBarBtn').addEventListener('click', () => {
+    const items = [...cropItems, ...directItems];
+    doExportExcel(items, document.getElementById('exportExcelBarBtn'));
+  });
+
+  // ============ 导出 PPT（Logo墙展示） ============
+  async function doExportPpt(items, btnEl) {
+    if (!items || items.length === 0) {
+      alert('没有可导出的数据');
+      return;
+    }
+
+    const origText = btnEl.textContent;
+    btnEl.textContent = '导出中...';
+    btnEl.disabled = true;
+
+    try {
+      const pptx = new PptxGenJS();
+      pptx.layout = 'LAYOUT_WIDE'; // 16:9 宽屏
+      pptx.author = 'Logo墙生成器';
+      pptx.title = 'Logo 墙';
+
+      // 按分类分组
+      const grouped = {};
+      items.forEach(item => {
+        const key = item.category || '未分类';
+        if (!grouped[key]) grouped[key] = [];
+        grouped[key].push(item);
+      });
+
+      // 封面页
+      const coverSlide = pptx.addSlide();
+      coverSlide.background = { fill: '667EEA' };
+      coverSlide.addText('Logo 墙', {
+        x: 0.5, y: 1.5, w: '90%', h: 1.2,
+        fontSize: 44, fontFace: 'Microsoft YaHei',
+        color: 'FFFFFF', bold: true, align: 'center'
+      });
+      const productLabel = currentProduct || 'IM';
+      const regionLabel = currentRegion || '';
+      const subtitle = `产品：${productLabel}` + (regionLabel ? `　|　区域：${regionLabel}` : '') + `　|　共 ${items.length} 个 Logo`;
+      coverSlide.addText(subtitle, {
+        x: 0.5, y: 2.8, w: '90%', h: 0.6,
+        fontSize: 18, fontFace: 'Microsoft YaHei',
+        color: 'DDDDFF', align: 'center'
+      });
+      const dateStr = new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
+      coverSlide.addText(dateStr, {
+        x: 0.5, y: 3.5, w: '90%', h: 0.4,
+        fontSize: 14, fontFace: 'Microsoft YaHei',
+        color: 'BBBBEE', align: 'center'
+      });
+
+      // 总览页：所有Logo墙
+      const COLS = 8;
+      const LOGO_SIZE = 0.75; // 英寸
+      const GAP_X = 0.4;
+      const GAP_Y = 0.45;
+      const START_X = 0.5;
+      const START_Y = 1.0;
+      const ROWS_PER_SLIDE = 5;
+
+      // 全部Logo概览页（可能多页）
+      for (let page = 0; page * COLS * ROWS_PER_SLIDE < items.length; page++) {
+        const slide = pptx.addSlide();
+        slide.background = { fill: 'FFFFFF' };
+        slide.addText('Logo 总览', {
+          x: 0.3, y: 0.15, w: '95%', h: 0.6,
+          fontSize: 24, fontFace: 'Microsoft YaHei',
+          color: '333333', bold: true
+        });
+        if (items.length > COLS * ROWS_PER_SLIDE) {
+          slide.addText(`第 ${page + 1} 页`, {
+            x: 10, y: 0.2, w: 2.5, h: 0.4,
+            fontSize: 12, fontFace: 'Microsoft YaHei',
+            color: '999999', align: 'right'
+          });
+        }
+
+        const startIdx = page * COLS * ROWS_PER_SLIDE;
+        const endIdx = Math.min(startIdx + COLS * ROWS_PER_SLIDE, items.length);
+
+        for (let i = startIdx; i < endIdx; i++) {
+          const idx = i - startIdx;
+          const col = idx % COLS;
+          const row = Math.floor(idx / COLS);
+          const x = START_X + col * (LOGO_SIZE + GAP_X);
+          const y = START_Y + row * (LOGO_SIZE + GAP_Y + 0.35);
+
+          const entry = items[i];
+
+          // 添加Logo图片
+          if (entry.src && entry.src.startsWith('data:image')) {
+            slide.addImage({
+              data: entry.src,
+              x: x + (LOGO_SIZE - 0.65) / 2,
+              y: y,
+              w: 0.65,
+              h: 0.65,
+              rounding: true,
+            });
+          }
+
+          // 名称
+          slide.addText(entry.name || '', {
+            x: x - 0.1, y: y + 0.68, w: LOGO_SIZE + 0.2, h: 0.28,
+            fontSize: 7, fontFace: 'Microsoft YaHei',
+            color: '555555', align: 'center', valign: 'top',
+            wrap: false
+          });
+        }
+      }
+
+      // 按分类生成详情页
+      const catKeys = Object.keys(grouped).sort((a, b) => {
+        if (a === '未分类') return 1;
+        if (b === '未分类') return -1;
+        return grouped[b].length - grouped[a].length;
+      });
+
+      for (const cat of catKeys) {
+        const catItems = grouped[cat];
+        const catSlide = pptx.addSlide();
+        catSlide.background = { fill: 'FAFBFC' };
+
+        // 分类标题
+        catSlide.addShape(pptx.shapes.RECTANGLE, {
+          x: 0, y: 0, w: '100%', h: 0.8,
+          fill: { color: '667EEA' }
+        });
+        catSlide.addText(`${cat}（${catItems.length}）`, {
+          x: 0.4, y: 0.1, w: 8, h: 0.6,
+          fontSize: 22, fontFace: 'Microsoft YaHei',
+          color: 'FFFFFF', bold: true
+        });
+
+        // Logo列表（表格形式）
+        const tableRows = [
+          [
+            { text: 'Logo', options: { bold: true, color: 'FFFFFF', fill: { color: '667EEA' }, align: 'center', fontSize: 10 } },
+            { text: '应用名称', options: { bold: true, color: 'FFFFFF', fill: { color: '667EEA' }, align: 'center', fontSize: 10 } },
+            { text: '产品', options: { bold: true, color: 'FFFFFF', fill: { color: '667EEA' }, align: 'center', fontSize: 10 } },
+            { text: '区域', options: { bold: true, color: 'FFFFFF', fill: { color: '667EEA' }, align: 'center', fontSize: 10 } },
+            { text: '大分类', options: { bold: true, color: 'FFFFFF', fill: { color: '667EEA' }, align: 'center', fontSize: 10 } },
+            { text: '小分类', options: { bold: true, color: 'FFFFFF', fill: { color: '667EEA' }, align: 'center', fontSize: 10 } }
+          ]
+        ];
+
+        const maxPerPage = 10;
+        const pageItems = catItems.slice(0, maxPerPage);
+
+        pageItems.forEach(entry => {
+          tableRows.push([
+            { text: '', options: { align: 'center', fontSize: 9 } },
+            { text: entry.name || '', options: { align: 'center', fontSize: 9 } },
+            { text: entry.product || '', options: { align: 'center', fontSize: 9, color: '667EEA' } },
+            { text: entry.region || '', options: { align: 'center', fontSize: 9, color: '389E0D' } },
+            { text: entry.category || '', options: { align: 'center', fontSize: 9 } },
+            { text: entry.subcategory || '', options: { align: 'center', fontSize: 9 } }
+          ]);
+        });
+
+        catSlide.addTable(tableRows, {
+          x: 0.3, y: 1.0, w: 12.5,
+          colW: [1.2, 2.5, 1.5, 1.8, 2.5, 2.5],
+          rowH: 0.45,
+          border: { type: 'solid', pt: 0.5, color: 'DDDDDD' },
+          autoPage: false
+        });
+
+        // 在表格上叠加Logo图片
+        pageItems.forEach((entry, i) => {
+          if (entry.src && entry.src.startsWith('data:image')) {
+            catSlide.addImage({
+              data: entry.src,
+              x: 0.5,
+              y: 1.0 + 0.45 + i * 0.45 + 0.03,
+              w: 0.35,
+              h: 0.35,
+              rounding: true
+            });
+          }
+        });
+
+        // 多余Logo提示
+        if (catItems.length > maxPerPage) {
+          catSlide.addText(`...及其他 ${catItems.length - maxPerPage} 个`, {
+            x: 0.3, y: 6.8, w: 5, h: 0.3,
+            fontSize: 10, fontFace: 'Microsoft YaHei',
+            color: '999999', italic: true
+          });
+        }
+      }
+
+      // 导出
+      const pptData = await pptx.write({ outputType: 'blob' });
+      saveAs(pptData, 'logo-wall.pptx');
+    } catch (err) {
+      console.error('PPT导出失败:', err);
+      alert('PPT导出失败，请重试');
+    }
+
+    btnEl.textContent = origText;
+    btnEl.disabled = false;
+  }
+
+  // PPT导出按钮绑定
+  document.getElementById('exportPptBtn').addEventListener('click', () => {
+    doExportPpt(logoEntries, document.getElementById('exportPptBtn'));
+  });
+  document.getElementById('exportPptBarBtn').addEventListener('click', () => {
+    const items = [...cropItems, ...directItems];
+    doExportPpt(items, document.getElementById('exportPptBarBtn'));
+  });
+
+  // ============ 拖拽通用 ============
+  function setupDragDrop(area, input) {
+    area.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      area.classList.add('dragover');
+    });
+    area.addEventListener('dragleave', () => area.classList.remove('dragover'));
+    area.addEventListener('drop', (e) => {
+      e.preventDefault();
+      area.classList.remove('dragover');
+      if (input === cropFileInput && e.dataTransfer.files[0]) {
+        loadCropImage(e.dataTransfer.files[0]);
+      } else if (input === directFileInput) {
+        handleDirectFiles(e.dataTransfer.files);
+      }
+    });
+  }
+
+  // ============ Logo 库 UI ============
+  const libraryGrid = document.getElementById('libraryGrid');
+  const libraryFilter = document.getElementById('libraryFilter');
+  const libraryCountEl = document.getElementById('libraryCount');
+  let librarySelectedIds = new Set();
+  let libraryCurrentCategory = 'all';
+
+  function renderLibrary() {
+    const lib = loadLibrary();
+    libraryCountEl.textContent = lib.length;
+
+    // 计算每个类别的数量
+    const catCounts = {};
+    lib.forEach(item => {
+      const cat = item.category || '未分类';
+      catCounts[cat] = (catCounts[cat] || 0) + 1;
+    });
+
+    // 渲染标签筛选器
+    libraryFilter.innerHTML = '';
+    const allTag = document.createElement('span');
+    allTag.className = 'filter-tag' + (libraryCurrentCategory === 'all' ? ' active' : '');
+    allTag.dataset.category = 'all';
+    allTag.innerHTML = `全部<span class="tag-count">(${lib.length})</span>`;
+    allTag.addEventListener('click', () => { libraryCurrentCategory = 'all'; renderLibrary(); });
+    libraryFilter.appendChild(allTag);
+
+    // 按数量排序类别
+    const sortedCats = Object.entries(catCounts).sort((a, b) => b[1] - a[1]);
+    sortedCats.forEach(([cat, count]) => {
+      const tag = document.createElement('span');
+      tag.className = 'filter-tag' + (libraryCurrentCategory === cat ? ' active' : '');
+      tag.dataset.category = cat;
+      tag.innerHTML = `${cat}<span class="tag-count">(${count})</span>`;
+      tag.addEventListener('click', () => { libraryCurrentCategory = cat; renderLibrary(); });
+      libraryFilter.appendChild(tag);
+    });
+
+    // 筛选
+    let filtered = lib;
+    if (libraryCurrentCategory !== 'all') {
+      filtered = lib.filter(item => (item.category || '未分类') === libraryCurrentCategory);
+    }
+
+    // 渲染网格
+    libraryGrid.innerHTML = '';
+    if (filtered.length === 0) {
+      libraryGrid.innerHTML = '<div class="library-empty">' +
+        (lib.length === 0 ? 'Logo 库为空，去裁剪或上传 Logo 吧' : '该类别下暂无 Logo') +
+        '</div>';
+      return;
+    }
+
+    // 清理不存在的选中项
+    librarySelectedIds = new Set([...librarySelectedIds].filter(id => lib.some(l => l.id === id)));
+
+    filtered.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'library-item' + (librarySelectedIds.has(item.id) ? ' selected' : '');
+      div.dataset.id = item.id;
+      div.innerHTML = `
+        <div class="lib-check">✓</div>
+        <img src="${item.src}" alt="${item.name}">
+        <div class="lib-name">${item.name}</div>
+        ${item.category ? `<div class="lib-cat">${item.category}${item.subcategory ? ' > ' + item.subcategory : ''}</div>` : ''}
+      `;
+      div.addEventListener('click', () => {
+        if (librarySelectedIds.has(item.id)) {
+          librarySelectedIds.delete(item.id);
+          div.classList.remove('selected');
+        } else {
+          librarySelectedIds.add(item.id);
+          div.classList.add('selected');
+        }
+        updateLibraryBtnState();
+      });
+      libraryGrid.appendChild(div);
+    });
+
+    updateLibraryBtnState();
+  }
+
+  function updateLibraryBtnState() {
+    const btn = document.getElementById('libraryGenerateBtn');
+    const count = librarySelectedIds.size;
+    btn.textContent = count > 0 ? `用选中 ${count} 项生成 Logo 墙` : '用选中项生成 Logo 墙';
+    btn.disabled = count === 0;
+    btn.style.opacity = count > 0 ? '1' : '0.5';
+  }
+
+  // 全选
+  document.getElementById('librarySelectAllBtn').addEventListener('click', () => {
+    const lib = loadLibrary();
+    let filtered = lib;
+    if (libraryCurrentCategory !== 'all') {
+      filtered = lib.filter(item => (item.category || '未分类') === libraryCurrentCategory);
+    }
+    const allSelected = filtered.every(item => librarySelectedIds.has(item.id));
+    if (allSelected) {
+      filtered.forEach(item => librarySelectedIds.delete(item.id));
+    } else {
+      filtered.forEach(item => librarySelectedIds.add(item.id));
+    }
+    renderLibrary();
+  });
+
+  // 删除选中
+  document.getElementById('libraryDeleteSelectedBtn').addEventListener('click', () => {
+    if (librarySelectedIds.size === 0) { alert('请先选择要删除的 Logo'); return; }
+    if (!confirm(`确定删除选中的 ${librarySelectedIds.size} 个 Logo 吗？`)) return;
+    removeFromLibrary([...librarySelectedIds]);
+    librarySelectedIds.clear();
+  });
+
+  // 用选中项生成 Logo 墙
+  document.getElementById('libraryGenerateBtn').addEventListener('click', () => {
+    if (librarySelectedIds.size === 0) { alert('请先选择 Logo'); return; }
+    const lib = loadLibrary();
+    logoEntries = lib.filter(item => librarySelectedIds.has(item.id));
+    renderWall();
+    wallSection.classList.add('visible');
+    wallSection.scrollIntoView({ behavior: 'smooth' });
+  });
+
+  // ============ JSON 导出功能（导出数据供浏览页使用） ============
+  document.getElementById('libraryExportJsonBtn').addEventListener('click', () => {
+    const lib = loadLibrary();
+    if (lib.length === 0) {
+      alert('Logo 库为空，无法导出');
+      return;
+    }
+    const exportData = lib.map(item => ({
+      id: item.id,
+      src: item.src,
+      name: item.name || '未命名',
+      category: item.category || '',
+      subcategory: item.subcategory || '',
+      product: item.product || '',
+      region: item.region || '',
+      addedAt: item.addedAt || Date.now()
+    }));
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    saveAs(blob, 'logos.json');
+    alert(`✅ 已导出 ${exportData.length} 个 Logo 数据。\n\n请将下载的 logos.json 文件放入项目的 data/ 目录并推送到 GitHub，浏览页将自动加载最新数据。`);
+  });
+
+  // ============ JSON 导入功能（配合 Chrome 插件使用） ============
+  const jsonImportInput = document.getElementById('jsonImportInput');
+  document.getElementById('libraryImportJsonBtn').addEventListener('click', () => {
+    jsonImportInput.click();
+  });
+
+  jsonImportInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        let data = JSON.parse(ev.target.result);
+        if (!Array.isArray(data)) {
+          alert('JSON 格式错误：应为数组');
+          return;
+        }
+        // 兼容插件导出格式和标准格式
+        const items = data.map(item => ({
+          src: item.src || '',
+          name: item.name || '未命名',
+          category: item.category || '',
+          subcategory: item.subcategory || '',
+          product: item.product || '',
+          region: item.region || ''
+        })).filter(item => item.src); // 过滤无图片的
+
+        if (items.length === 0) {
+          alert('未找到有效的 Logo 数据');
+          return;
+        }
+        addToLibrary(items);
+        alert(`✅ 成功导入 ${items.length} 个 Logo 到库中！`);
+      } catch (err) {
+        alert('JSON 解析失败: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+    jsonImportInput.value = ''; // 重置
+  });
+
+  // 页面加载时初始化库
+  renderLibrary();
+</script>
+
+</body>
+</html>
