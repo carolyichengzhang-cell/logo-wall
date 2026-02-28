@@ -2152,7 +2152,7 @@
       // 将base64图片转换为Gemini API需要的格式
       const base64Data = fullOcrImage.split(',')[1];
       
-      const aiOcrPromise = fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+      const aiOcrPromise = fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -2191,9 +2191,24 @@
           }
         })
       })
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) {
+          console.error('[Gemini OCR HTTP错误]', res.status, res.statusText);
+          return res.text().then(text => {
+            console.error('[Gemini OCR错误详情]', text);
+            throw new Error(`HTTP ${res.status}: ${text}`);
+          });
+        }
+        return res.json();
+      })
       .then(data => {
         console.log('[Gemini OCR原始响应]', data);
+        
+        // 检查是否有错误
+        if (data.error) {
+          console.error('[Gemini API错误]', data.error);
+          return { name: '', ocrCat: null };
+        }
         
         try {
           const content = data.candidates[0].content.parts[0].text.trim();
@@ -2405,7 +2420,7 @@
         // 使用Gemini免费API识别Logo图片中的文字
         const base64Data = imageSrc.split(',')[1];
         
-        fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+        fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -2443,9 +2458,30 @@
             }
           })
         })
-        .then(res => res.json())
+        .then(res => {
+          if (!res.ok) {
+            console.error('[直接上传Gemini OCR HTTP错误]', res.status, res.statusText);
+            return res.text().then(text => {
+              console.error('[直接上传Gemini OCR错误详情]', text);
+              throw new Error(`HTTP ${res.status}: ${text}`);
+            });
+          }
+          return res.json();
+        })
         .then(data => {
           console.log('[直接上传Gemini OCR原始响应]', data);
+          
+          // 检查是否有错误
+          if (data.error) {
+            console.error('[直接上传Gemini API错误]', data.error);
+            if (index < directItems.length) {
+              directItems[index].name = fallbackName;
+              directItems[index].region = guessRegionByName(fallbackName);
+              directItems[index].ocrDone = true;
+              renderDirectGrid();
+            }
+            return;
+          }
           
           try {
             if (index >= directItems.length) return;
