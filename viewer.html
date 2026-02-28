@@ -567,23 +567,23 @@
 
   // ============ 加载数据 ============
   async function loadData() {
-    // 优先从 IndexedDB 加载（admin 后台直接写入的数据）
-    allLogos = await loadFromIndexedDB();
-
-    // 如果 IndexedDB 为空，尝试从 data/logos.json 加载
-    if (allLogos.length === 0) {
-      try {
-        const res = await fetch('data/logos.json?t=' + Date.now());
-        if (res.ok) {
-          const jsonData = await res.json();
-          if (Array.isArray(jsonData) && jsonData.length > 0) {
-            allLogos = jsonData;
-          }
+    // 1. 优先从 data/logos.json 加载（GitHub 上的共享数据，所有人可见）
+    try {
+      const res = await fetch('data/logos.json?t=' + Date.now());
+      if (res.ok) {
+        const jsonData = await res.json();
+        if (Array.isArray(jsonData) && jsonData.length > 0) {
+          allLogos = jsonData;
         }
-      } catch (e) {}
+      }
+    } catch (e) {}
+
+    // 2. 如果 JSON 为空，尝试从 IndexedDB 加载（本地管理员数据）
+    if (allLogos.length === 0) {
+      allLogos = await loadFromIndexedDB();
     }
 
-    // 如果仍然为空，显示导入提示
+    // 3. 如果仍然为空，显示导入提示
     if (allLogos.length === 0) {
       document.getElementById('loadingState').innerHTML = `
         <div style="text-align:center;padding:40px 20px;">
@@ -604,7 +604,6 @@
           try {
             const data = JSON.parse(ev.target.result);
             if (!Array.isArray(data) || data.length === 0) { alert('JSON 格式错误或为空'); return; }
-            // 存入 IndexedDB
             const db = await openDB();
             const tx = db.transaction(STORE_NAME, 'readwrite');
             const store = tx.objectStore(STORE_NAME);
