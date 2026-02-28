@@ -365,6 +365,17 @@
       scan: () => {
         const results = [];
 
+        // 检测文本是否包含分类格式（如 "娱乐 > 游戏服务"、"内容形式 > 用户生成/UGC"）
+        const CATEGORY_PATTERN = /[\u4e00-\u9fff\w]+\s*[>＞→]\s*[\u4e00-\u9fff\w/]+/;
+
+        // 从文本中提取第一个分类
+        function extractCategory(text) {
+          if (!text) return null;
+          const m = text.match(/([\u4e00-\u9fff\w]+)\s*[>＞→]\s*([\u4e00-\u9fff\w/]+)/);
+          if (m) return { major: m[1].trim(), minor: m[2].trim() };
+          return null;
+        }
+
         // === 策略A：表格行扫描（适配数据表格页面） ===
         const tableRows = document.querySelectorAll('tr, [role="row"], .ant-table-row, .el-table__row');
         if (tableRows.length > 1) {
@@ -374,55 +385,78 @@
             const rect = img.getBoundingClientRect();
             if (rect.width < 16 || rect.height < 16 || rect.width > 200) return;
 
-            // 从表格行中提取所有文本单元格
             const cells = row.querySelectorAll('td, [role="cell"], .ant-table-cell, .el-table__cell');
             let name = '';
             let pageCategory = '';
+            let pageSubcategory = '';
 
-            cells.forEach(cell => {
+            cells.forEach((cell, idx) => {
               const text = cell.textContent.trim();
               if (!text) return;
 
-              // 检测分类格式：如 "娱乐 > 游戏服务"、"生活 > 家庭安全"
-              const catMatch = text.match(/^([\u4e00-\u9fff\w]+)\s*[>＞→]\s*([\u4e00-\u9fff\w]+)/);
-              if (catMatch && !pageCategory) {
-                pageCategory = text;
+              // 如果该单元格包含图片 → 这是名称列
+              if (cell.contains(img)) {
+                if (name) return; // 已经提取过名称
+                // 只从图片所在单元格提取名称，注意排除分类文本
+                // 方法：找最近的、不含 ">" 的短文本元素
+                const candidates = cell.querySelectorAll('span, a, div, p, h1, h2, h3, h4, h5, h6');
+                for (const el of candidates) {
+                  const t = el.textContent.trim();
+                  if (!t || t.length < 2 || t.length > 30) continue;
+                  // 跳过包含分类格式的文本
+                  if (CATEGORY_PATTERN.test(t)) continue;
+                  // 跳过纯数字
+                  if (/^\d+$/.test(t)) continue;
+                  // 跳过公司名
+                  if (/Technology|Ltd|Inc|Co\.,|Network|Beijing|Shanghai|Shenzhen|Tencent|Alibaba/.test(t)) continue;
+                  // 跳过标签类文本（如 "通用"、"内容..."等短于名称的描述）
+                  // 取第一个看起来像 App 名称的文本
+                  name = t;
+                  break;
+                }
+                // 如果没找到，用 img alt
+                if (!name && img.alt && img.alt.length >= 2 && img.alt.length <= 30 && !CATEGORY_PATTERN.test(img.alt)) {
+                  name = img.alt.trim();
+                }
                 return;
               }
 
-              // 如果该单元格包含图片，从中提取名称
-              if (cell.contains(img) && !name) {
-                // 找图片旁边的文本
-                const textNodes = cell.querySelectorAll('span, a, div, p, h1, h2, h3, h4, h5, h6');
-                for (const tn of textNodes) {
-                  const t = tn.textContent.trim();
-                  if (t && t.length >= 2 && t.length <= 40 && !/^\d+$/.test(t) &&
-                      !t.includes('Technology') && !t.includes('Ltd') && !t.includes('Inc') &&
-                      !t.includes('Co.,') && !t.includes('Network')) {
-                    name = t;
-                    break;
-                  }
-                }
-                // 如果没找到，用 img alt
-                if (!name && img.alt && img.alt.length >= 2 && img.alt.length <= 40) {
-                  name = img.alt.trim();
-                }
+              // 非图片单元格：检查是否是分类列
+              const cat = extractCategory(text);
+              if (cat && !pageCategory) {
+                pageCategory = cat.major;
+                pageSubcategory = cat.minor;
+                return;
               }
             });
 
+            // 兜底：用 findNearbyName，但同样需要避免混入分类
             if (!name) {
-              name = findNearbyName(img);
+              const rawName = findNearbyName(img);
+              if (rawName && !CATEGORY_PATTERN.test(rawName)) {
+                name = rawName;
+              } else if (rawName) {
+                // 从 rawName 中去掉分类部分
+                name = rawName.replace(CATEGORY_PATTERN, '').replace(/\s+/g, ' ').trim();
+              }
             }
 
             if (name) {
-              const item = { imgEl: img, name, source: location.hostname };
-              // 解析页面上的分类
-              if (pageCategory) {
-                const parts = pageCategory.split(/\s*[>＞→]\s*/);
-                item.pageCategory = parts[0]?.trim() || '';
-                item.pageSubcategory = parts[1]?.trim() || '';
+              // 最终清理：确保名称中没有分类残留
+              if (CATEGORY_PATTERN.test(name)) {
+                name = name.replace(CATEGORY_PATTERN, '').replace(/\s+/g, ' ').trim();
               }
-              results.push(item);
+              // 去掉末尾的数字（如排名数字）
+              name = name.replace(/\s+\d+$/, '').trim();
+
+              if (name) {
+                const item = { imgEl: img, name, source: location.hostname };
+                if (pageCategory) {
+                  item.pageCategory = pageCategory;
+                  item.pageSubcategory = pageSubcategory;
+                }
+                results.push(item);
+              }
             }
           });
 
@@ -430,7 +464,6 @@
         }
 
         // === 策略B：列表/卡片扫描（适配普通网页） ===
-        // 查找带有分类信息的列表容器
         const listItems = document.querySelectorAll(
           '.app-item, .app-card, .list-item, .card-item, [class*="app"], [class*="item"]'
         );
@@ -446,12 +479,11 @@
 
             const entry = { imgEl: img, name, source: location.hostname };
 
-            // 尝试从容器中提取分类
             const allText = item.textContent;
-            const catMatch = allText.match(/([\u4e00-\u9fff]+)\s*[>＞→]\s*([\u4e00-\u9fff]+)/);
-            if (catMatch) {
-              entry.pageCategory = catMatch[1].trim();
-              entry.pageSubcategory = catMatch[2].trim();
+            const cat = extractCategory(allText);
+            if (cat) {
+              entry.pageCategory = cat.major;
+              entry.pageSubcategory = cat.minor;
             }
 
             results.push(entry);
