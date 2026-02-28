@@ -763,77 +763,74 @@
 </div>
 
 <script>
-  // ============ 百度OCR配置 ============
-  const BAIDU_OCR_API_KEY = 'KSZEnVML5zFJu0lHTBxN9v3T';
-  const BAIDU_OCR_SECRET_KEY = 'Kbv47OAPZdlRHaY4ROuxRRcfZ1ctM6Dx';
+  // ============ Gemini Vision API配置 ============
+  const GEMINI_API_KEY = 'AIzaSyCUUWFrBbbXc7ty6BaGgS1VcugLSbLxS5U';
+  const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
   
-  // 获取百度Access Token（缓存24小时）
-  let baiduAccessToken = null;
-  let tokenExpireTime = 0;
-  
-  async function getBaiduAccessToken() {
-    // 检查缓存
-    if (baiduAccessToken && Date.now() < tokenExpireTime) {
-      return baiduAccessToken;
-    }
-    
+  // Gemini Vision OCR识别函数
+  async function geminiOCR(base64Image) {
     try {
-      const tokenUrl = `https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials&client_id=${BAIDU_OCR_API_KEY}&client_secret=${BAIDU_OCR_SECRET_KEY}`;
-      const res = await fetch(tokenUrl, { method: 'POST' });
-      const data = await res.json();
-      
-      if (data.access_token) {
-        baiduAccessToken = data.access_token;
-        tokenExpireTime = Date.now() + (data.expires_in - 600) * 1000; // 提前10分钟过期
-        console.log('[百度OCR] Access Token获取成功');
-        return baiduAccessToken;
-      } else {
-        console.error('[百度OCR] Token获取失败:', data);
-        throw new Error('无法获取百度OCR Access Token');
-      }
-    } catch (err) {
-      console.error('[百度OCR] Token获取异常:', err);
-      throw err;
-    }
-  }
-  
-  // 百度OCR识别函数
-  async function baiduOCR(base64Image) {
-    try {
-      const token = await getBaiduAccessToken();
-      const ocrUrl = `https://aip.baidubce.com/rest/2.0/ocr/v1/accurate_basic?access_token=${token}`;
-      
-      // 去掉base64前缀
-      const imageData = base64Image.replace(/^data:image\/\w+;base64,/, '');
-      
-      const formData = new URLSearchParams();
-      formData.append('image', imageData);
-      formData.append('detect_direction', 'false');
-      formData.append('paragraph', 'false');
-      formData.append('probability', 'false');
-      
-      const res = await fetch(ocrUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: formData
-      });
-      
-      const data = await res.json();
-      
-      if (data.error_code) {
-        console.error('[百度OCR错误]', data.error_code, data.error_msg);
+      // 去掉base64前缀，获取纯base64数据和mime类型
+      const matches = base64Image.match(/^data:image\/(\w+);base64,(.+)$/);
+      if (!matches) {
+        console.error('[Gemini OCR] 无效的base64图片格式');
         return '';
       }
       
-      if (data.words_result && data.words_result.length > 0) {
-        const text = data.words_result.map(item => item.words).join('\n');
-        console.log('[百度OCR识别成功]', text);
-        return text;
+      const mimeType = `image/${matches[1]}`;
+      const imageData = matches[2];
+      
+      // 构造Gemini API请求
+      const requestBody = {
+        contents: [{
+          parts: [
+            {
+              text: "请识别这张图片中的所有中文和英文文字，按原始顺序逐行返回，不要添加任何解释或格式化。"
+            },
+            {
+              inline_data: {
+                mime_type: mimeType,
+                data: imageData
+              }
+            }
+          ]
+        }],
+        generationConfig: {
+          temperature: 0.1,
+          maxOutputTokens: 1000
+        }
+      };
+      
+      const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[Gemini OCR] API请求失败:', response.status, errorText);
+        return '';
       }
       
+      const data = await response.json();
+      
+      // 解析Gemini响应
+      if (data.candidates && data.candidates.length > 0) {
+        const candidate = data.candidates[0];
+        if (candidate.content && candidate.content.parts && candidate.content.parts.length > 0) {
+          const text = candidate.content.parts[0].text || '';
+          console.log('[Gemini OCR识别成功]', text);
+          return text.trim();
+        }
+      }
+      
+      console.warn('[Gemini OCR] 未识别到文字');
       return '';
     } catch (err) {
-      console.error('[百度OCR异常]', err);
+      console.error('[Gemini OCR异常]', err);
       return '';
     }
   }
@@ -2216,10 +2213,10 @@
         return c.toDataURL('image/png');
       }
 
-      // 使用百度OCR识别名称（只用一次高质量识别）
+      // 使用Gemini OCR识别名称（高精度视觉识别）
       const nameSrc = prepareNameCanvas(nameX, nameY, nameW, nameH, 4, 160);
 
-      const nameOcrPromise = baiduOCR(nameSrc).then(text => {
+      const nameOcrPromise = geminiOCR(nameSrc).then(text => {
         console.log('[名称OCR原始文本]', text);
 
         if (!text) return { type: 'name', value: '' };
@@ -2283,10 +2280,10 @@
         return c.toDataURL('image/png');
       }
 
-      // 使用百度OCR识别分类（标准参数）
+      // 使用Gemini OCR识别分类（标准参数）
       const catSrc = prepareOcrCanvas(catX, catY, catW, catH, 5, 155, true);
 
-      const catOcrPromise = baiduOCR(catSrc).then(text => {
+      const catOcrPromise = geminiOCR(catSrc).then(text => {
         console.log('[分类OCR原始文本]', text);
         
         if (!text) return { type: 'category', value: null };
