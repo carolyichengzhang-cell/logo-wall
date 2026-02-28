@@ -2152,7 +2152,7 @@
       // 将base64图片转换为Gemini API需要的格式
       const base64Data = fullOcrImage.split(',')[1];
       
-      const aiOcrPromise = fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+      const aiOcrPromise = fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -2405,7 +2405,7 @@
         // 使用Gemini免费API识别Logo图片中的文字
         const base64Data = imageSrc.split(',')[1];
         
-        fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+        fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
