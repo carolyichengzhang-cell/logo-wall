@@ -635,6 +635,7 @@
       <button class="product-btn" data-product="RTC">RTC</button>
       <button class="product-btn" data-product="美颜">美颜</button>
     </div>
+    <button class="btn btn-secondary" id="apiKeyBtn" style="margin-left:auto;padding:6px 14px;font-size:0.82rem;background:#667eea22;color:#667eea;border:1px solid #667eea;">设置 API Key</button>
   </div>
 
   <!-- 模式切换 -->
@@ -764,6 +765,30 @@
 </div>
 
 <script>
+  // ============ API配置 ============
+  let API_KEY = localStorage.getItem('openai_api_key') || '';
+  
+  // 检查API Key
+  function checkApiKey() {
+    if (!API_KEY) {
+      const key = prompt('请输入OpenAI API Key（用于高精度OCR识别）：\n\n提示：API Key将保存在浏览器本地，仅用于调用OpenAI视觉模型识别App名称和分类标签。\n\n如需更换，可在浏览器控制台输入：localStorage.removeItem("openai_api_key")');
+      if (key && key.trim()) {
+        API_KEY = key.trim();
+        localStorage.setItem('openai_api_key', API_KEY);
+        return true;
+      } else {
+        alert('未设置API Key，将无法使用OCR识别功能。\n页面将继续加载，但识别功能将不可用。');
+        return false;
+      }
+    }
+    return true;
+  }
+
+  // 页面加载时检查API Key
+  window.addEventListener('DOMContentLoaded', () => {
+    checkApiKey();
+  });
+
   // ============ 数据 ============
   let logoEntries = [];
 
@@ -1253,6 +1278,17 @@
       btn.classList.add('active');
       currentProduct = btn.dataset.product;
     });
+  });
+
+  // ============ API Key设置 ============
+  document.getElementById('apiKeyBtn').addEventListener('click', () => {
+    const currentKey = API_KEY ? `${API_KEY.substring(0, 10)}...${API_KEY.substring(API_KEY.length - 4)}` : '未设置';
+    const newKey = prompt(`当前API Key: ${currentKey}\n\n请输入新的OpenAI API Key（留空则不修改）：`);
+    if (newKey && newKey.trim()) {
+      API_KEY = newKey.trim();
+      localStorage.setItem('openai_api_key', API_KEY);
+      alert('API Key 已更新！');
+    }
   });
 
   // ============ Tab 切换 ============
@@ -2111,60 +2147,101 @@
       return null;
     }
 
-    // 并行OCR：名称 + 分类
+    // 使用大模型进行OCR识别（名称 + 分类标签）
     const ocrPromises = [];
 
-    // OCR 1: 识别App名称（多策略）
-    if (nameW > 10 && nameH > 5) {
-      // 名称预处理函数：放大+二值化，与分类OCR同级预处理
-      function prepareNameCanvas(srcX, srcY, srcW, srcH, scale, threshold) {
-        const c = document.createElement('canvas');
-        c.width = Math.round(srcW * scale);
-        c.height = Math.round(srcH * scale);
-        const cCtx = c.getContext('2d');
-        cCtx.imageSmoothingEnabled = true;
-        cCtx.imageSmoothingQuality = 'high';
-        cCtx.fillStyle = '#ffffff';
-        cCtx.fillRect(0, 0, c.width, c.height);
-        cCtx.drawImage(cropImage, srcX, srcY, srcW, srcH, 0, 0, c.width, c.height);
-        // 二值化增强
-        const imgData = cCtx.getImageData(0, 0, c.width, c.height);
-        const pxData = imgData.data;
-        for (let i = 0; i < pxData.length; i += 4) {
-          const r = pxData[i], g = pxData[i+1], b = pxData[i+2];
-          const gray = r * 0.299 + g * 0.587 + b * 0.114;
-          const isGrayText = (gray < 180 && Math.abs(r-g) < 30 && Math.abs(g-b) < 30 && Math.abs(r-b) < 30);
-          const isText = gray < threshold || (isGrayText && gray < threshold + 40);
-          const val = isText ? 0 : 255;
-          pxData[i] = pxData[i+1] = pxData[i+2] = val;
-        }
-        cCtx.putImageData(imgData, 0, 0);
-        return c.toDataURL('image/png');
-      }
+    // 准备一个包含名称和分类区域的完整识别图片
+    function prepareFullOcrCanvas() {
+      // 创建一个canvas，包含Logo右侧的所有文字区域
+      const startX = Math.min(nameX, catX);
+      const endX = Math.max(nameX + nameW, catX + catW);
+      const startY = Math.min(nameY, catY);
+      const endY = Math.max(nameY + nameH, catY + catH);
+      
+      const fullW = endX - startX;
+      const fullH = endY - startY;
+      
+      // 放大2倍以提高识别精度
+      const scale = 2;
+      const c = document.createElement('canvas');
+      c.width = Math.round(fullW * scale);
+      c.height = Math.round(fullH * scale);
+      const cCtx = c.getContext('2d');
+      cCtx.imageSmoothingEnabled = true;
+      cCtx.imageSmoothingQuality = 'high';
+      cCtx.fillStyle = '#ffffff';
+      cCtx.fillRect(0, 0, c.width, c.height);
+      cCtx.drawImage(cropImage, startX, startY, fullW, fullH, 0, 0, c.width, c.height);
+      
+      return c.toDataURL('image/png');
+    }
 
-      // 策略A：4x放大，阈值140
-      const nameSrcA = prepareNameCanvas(nameX, nameY, nameW, nameH, 4, 140);
-      // 策略B：4x放大，阈值180（更宽松，捕获浅色文字）
-      const nameSrcB = prepareNameCanvas(nameX, nameY, nameW, nameH, 4, 180);
+    // 使用大模型OCR识别
+    if ((nameW > 10 && nameH > 5) || (catW > 10 && catH > 5)) {
+      const fullOcrImage = prepareFullOcrCanvas();
+      
+      const aiOcrPromise = fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${API_KEY}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: `这是一张App Store截图的一部分，包含App名称和分类标签。请仔细识别图片中的所有文字内容。
 
-      const nameOcrPromise = Promise.all([
-        Tesseract.recognize(nameSrcA, 'chi_sim+eng', { logger: () => {} })
-          .then(({ data: { text } }) => text).catch(() => ''),
-        Tesseract.recognize(nameSrcB, 'chi_sim+eng', { logger: () => {} })
-          .then(({ data: { text } }) => text).catch(() => ''),
-      ]).then(texts => {
-        console.log('[名称OCR多策略原始文本]', { A: texts[0], B: texts[1] });
+要求：
+1. **App名称**：通常在左侧，可能是中文、英文、日文、韩文等，请准确识别完整名称
+2. **分类标签**：通常在右侧，格式可能是"大分类 > 小分类"或"大分类>小分类"或直接连在一起如"金融理财银行"
+3. 请区分大标签（大分类）和小标签（小分类）
+4. 如果文字模糊或难以识别，请尽最大努力识别，不要遗漏任何文字
 
-        let bestName = '';
-        for (const t of texts) {
-          if (!t) continue;
-          const lines = t.trim().split('\n').map(l => l.trim()).filter(l => l);
-          if (lines.length === 0) continue;
-          let firstLine = cleanOcrText(lines[0]);
-          if (firstLine.length <= 1 && lines.length > 1) {
-            firstLine = cleanOcrText(lines[0] + lines[1]);
+请以JSON格式返回：
+{
+  "appName": "识别到的App名称",
+  "categoryText": "识别到的完整分类文本（包含所有分类相关的文字）"
+}
+
+注意：只返回JSON，不要有其他说明文字。`
+                },
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: fullOcrImage,
+                    detail: 'high'
+                  }
+                }
+              ]
+            }
+          ],
+          max_tokens: 500,
+          temperature: 0.1
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        console.log('[大模型OCR原始响应]', data);
+        
+        try {
+          const content = data.choices[0].message.content.trim();
+          // 提取JSON（可能包含在markdown代码块中）
+          const jsonMatch = content.match(/\{[\s\S]*\}/);
+          if (!jsonMatch) {
+            console.warn('[大模型OCR] 未找到JSON格式');
+            return { name: '', categoryText: '' };
           }
-          let name = firstLine;
+          
+          const result = JSON.parse(jsonMatch[0]);
+          console.log('[大模型OCR解析结果]', result);
+          
+          let name = cleanOcrText(result.appName || '');
+          // 名称后处理
           if (name.length > 10) {
             const parts = name.split(/\s+/);
             name = parts[0];
@@ -2173,113 +2250,34 @@
             name = name.substring(0, 8);
           }
           name = correctOcrName(name);
-          // 取更长的有效名称（通常更完整）
-          if (name.length > bestName.length) {
-            bestName = name;
-          }
+          
+          const categoryText = result.categoryText || '';
+          const ocrCat = extractCategoryFromOcr(categoryText);
+          
+          return { name, ocrCat };
+        } catch (e) {
+          console.error('[大模型OCR解析失败]', e);
+          return { name: '', ocrCat: null };
         }
-        return { type: 'name', value: bestName };
-      }).catch(() => ({ type: 'name', value: '' }));
+      })
+      .catch(err => {
+        console.error('[大模型OCR请求失败]', err);
+        return { name: '', ocrCat: null };
+      });
 
-      ocrPromises.push(nameOcrPromise);
-    }
-
-    // OCR 2: 识别右侧分类标签（多策略尝试）
-    if (catW > 10 && catH > 5) {
-
-      // 创建预处理后的canvas用于OCR
-      function prepareOcrCanvas(srcX, srcY, srcW, srcH, scale, threshold, detectBlue) {
-        const c = document.createElement('canvas');
-        c.width = Math.round(srcW * scale);
-        c.height = Math.round(srcH * scale);
-        const cCtx = c.getContext('2d');
-        cCtx.imageSmoothingEnabled = true;
-        cCtx.imageSmoothingQuality = 'high';
-        cCtx.fillStyle = '#ffffff';
-        cCtx.fillRect(0, 0, c.width, c.height);
-        cCtx.drawImage(cropImage, srcX, srcY, srcW, srcH, 0, 0, c.width, c.height);
-
-        const imgData = cCtx.getImageData(0, 0, c.width, c.height);
-        const pxData = imgData.data;
-        for (let i = 0; i < pxData.length; i += 4) {
-          const r = pxData[i], g = pxData[i+1], b = pxData[i+2];
-          const gray = r * 0.299 + g * 0.587 + b * 0.114;
-          let isText = gray < threshold;
-          if (detectBlue) {
-            const isBlue = (b > 120 && b > r * 1.3 && b > g * 1.1);
-            isText = isText || isBlue;
-          }
-          // 额外检测灰色文字（某些分类标签是灰色的）
-          const isGrayText = (gray < 180 && Math.abs(r - g) < 30 && Math.abs(g - b) < 30 && Math.abs(r - b) < 30);
-          isText = isText || (isGrayText && gray < threshold + 40);
-          const val = isText ? 0 : 255;
-          pxData[i] = pxData[i+1] = pxData[i+2] = val;
-        }
-        cCtx.putImageData(imgData, 0, 0);
-        return c.toDataURL('image/png');
-      }
-
-      // 策略A：当前分类区域，标准参数（5x放大，阈值140，检测蓝色）
-      const catSrcA = prepareOcrCanvas(catX, catY, catW, catH, 5, 140, true);
-      // 策略B：当前分类区域，更宽松阈值（5x放大，阈值170，检测蓝色）
-      const catSrcB = prepareOcrCanvas(catX, catY, catW, catH, 5, 170, true);
-      // 策略C：更大的分类区域（从图片55%处开始），4x放大
-      const widerCatX = Math.floor(cropImage.naturalWidth * 0.55);
-      const widerCatW = cropImage.naturalWidth - widerCatX;
-      const catSrcC = prepareOcrCanvas(widerCatX, catY, widerCatW, catH, 4, 155, true);
-
-      // 执行多次OCR，取最佳结果
-      const catOcrPromise = Promise.all([
-        Tesseract.recognize(catSrcA, 'chi_sim+eng', { logger: () => {}, tessedit_pageseg_mode: '6' })
-          .then(({ data: { text } }) => text).catch(() => ''),
-        Tesseract.recognize(catSrcB, 'chi_sim+eng', { logger: () => {}, tessedit_pageseg_mode: '6' })
-          .then(({ data: { text } }) => text).catch(() => ''),
-        Tesseract.recognize(catSrcC, 'chi_sim+eng', { logger: () => {}, tessedit_pageseg_mode: '7' })
-          .then(({ data: { text } }) => text).catch(() => ''),
-      ]).then(texts => {
-        console.log('[分类OCR多策略原始文本]', { A: texts[0], B: texts[1], C: texts[2] });
-        
-        // 尝试每个OCR结果，返回第一个能解析出分类的
-        let bestCat = null;
-        for (const t of texts) {
-          if (!t) continue;
-          const cat = extractCategoryFromOcr(t);
-          if (cat && cat.major) {
-            // 如果有小分类就直接采用；没小分类也先记录，继续看下个
-            if (cat.minor) {
-              console.log('[分类OCR最终采用]', cat, '来源文本:', t);
-              return { type: 'category', value: cat };
-            }
-            if (!bestCat) bestCat = cat;
-          }
-        }
-        
-        // 如果单独都没解析出来，尝试合并所有OCR文本再解析
-        if (!bestCat) {
-          const combinedText = texts.filter(Boolean).join('\n');
-          bestCat = extractCategoryFromOcr(combinedText);
-        }
-        
-        console.log('[分类OCR最终结果]', bestCat);
-        return { type: 'category', value: bestCat };
-      }).catch((e) => { console.warn('[分类OCR失败]', e); return { type: 'category', value: null }; });
-
-      ocrPromises.push(catOcrPromise);
+      ocrPromises.push(aiOcrPromise);
     }
 
     if (ocrPromises.length > 0) {
       Promise.all(ocrPromises).then(results => {
         if (index >= cropItems.length) return;
 
-        let name = '';
-        let ocrCat = null;
+        // 从大模型OCR结果中提取数据
+        const result = results[0];
+        const name = result.name || '未命名Logo';
+        const ocrCat = result.ocrCat;
 
-        results.forEach(r => {
-          if (r.type === 'name') name = r.value;
-          if (r.type === 'category') ocrCat = r.value;
-        });
-
-        cropItems[index].name = name || '未命名Logo';
+        cropItems[index].name = name;
 
         // 根据App名称自动猜测地区
         const guessedRegion = guessRegionByName(name);
@@ -2422,10 +2420,124 @@
     Array.from(files).filter(f => f.type.startsWith('image/')).forEach(file => {
       const reader = new FileReader();
       reader.onload = (e) => {
-        const name = file.name.replace(/\.[^/.]+$/, '');
-        directItems.push({ src: e.target.result, name, product: currentProduct, region: guessRegionByName(name) });
+        const imageSrc = e.target.result;
+        const fallbackName = file.name.replace(/\.[^/.]+$/, '');
+        const index = directItems.length;
+        
+        // 先添加占位项
+        directItems.push({ 
+          src: imageSrc, 
+          name: '识别中...', 
+          product: currentProduct, 
+          region: '',
+          ocrDone: false 
+        });
         renderDirectGrid();
         updateGenerateBar();
+
+        // 使用大模型OCR识别Logo图片中的文字
+        fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${API_KEY}`
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [
+              {
+                role: 'user',
+                content: [
+                  {
+                    type: 'text',
+                    text: `这是一个App Logo图片。请仔细识别图片中的所有文字内容。
+
+要求：
+1. **Logo中的文字**：可能是App名称、品牌名称，可能是中文、英文、日文、韩文等
+2. **所有可见文字**：包括大字、小字、标语等所有文字内容
+3. 如果图片中没有文字，请返回空字符串
+4. 如果文字模糊或难以识别，请尽最大努力识别
+
+请以JSON格式返回：
+{
+  "text": "识别到的所有文字内容，多个词用空格分隔"
+}
+
+注意：只返回JSON，不要有其他说明文字。`
+                  },
+                  {
+                    type: 'image_url',
+                    image_url: {
+                      url: imageSrc,
+                      detail: 'high'
+                    }
+                  }
+                ]
+              }
+            ],
+            max_tokens: 300,
+            temperature: 0.1
+          })
+        })
+        .then(res => res.json())
+        .then(data => {
+          console.log('[直接上传大模型OCR原始响应]', data);
+          
+          try {
+            if (index >= directItems.length) return;
+            
+            const content = data.choices[0].message.content.trim();
+            const jsonMatch = content.match(/\{[\s\S]*\}/);
+            if (!jsonMatch) {
+              console.warn('[直接上传大模型OCR] 未找到JSON格式，使用文件名');
+              directItems[index].name = fallbackName;
+              directItems[index].region = guessRegionByName(fallbackName);
+              directItems[index].ocrDone = true;
+              renderDirectGrid();
+              return;
+            }
+            
+            const result = JSON.parse(jsonMatch[0]);
+            console.log('[直接上传大模型OCR解析结果]', result);
+            
+            let recognizedText = cleanOcrText(result.text || '');
+            
+            // 如果识别到文字，使用识别结果；否则使用文件名
+            if (recognizedText && recognizedText.length >= 2) {
+              // 取第一个词作为名称
+              const words = recognizedText.split(/\s+/);
+              let name = words[0];
+              if (name.length > 10) {
+                name = name.substring(0, 10);
+              }
+              name = correctOcrName(name);
+              directItems[index].name = name;
+            } else {
+              directItems[index].name = fallbackName;
+            }
+            
+            directItems[index].region = guessRegionByName(directItems[index].name);
+            directItems[index].ocrDone = true;
+            renderDirectGrid();
+          } catch (e) {
+            console.error('[直接上传大模型OCR解析失败]', e);
+            if (index < directItems.length) {
+              directItems[index].name = fallbackName;
+              directItems[index].region = guessRegionByName(fallbackName);
+              directItems[index].ocrDone = true;
+              renderDirectGrid();
+            }
+          }
+        })
+        .catch(err => {
+          console.error('[直接上传大模型OCR请求失败]', err);
+          if (index < directItems.length) {
+            directItems[index].name = fallbackName;
+            directItems[index].region = guessRegionByName(fallbackName);
+            directItems[index].ocrDone = true;
+            renderDirectGrid();
+          }
+        });
       };
       reader.readAsDataURL(file);
     });
