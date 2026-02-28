@@ -765,7 +765,6 @@
 <script>
   // ============ Gemini Vision API配置 ============
   const GEMINI_API_KEY = 'AIzaSyCUUWFrBbbXc7ty6BaGgS1VcugLSbLxS5U';
-  const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent';
   
   // Gemini Vision OCR识别函数
   async function geminiOCR(base64Image) {
@@ -780,7 +779,7 @@
       const mimeType = `image/${matches[1]}`;
       const imageData = matches[2];
       
-      // 构造Gemini API请求
+      // 使用正确的Gemini API格式
       const requestBody = {
         contents: [{
           parts: [
@@ -794,14 +793,13 @@
               }
             }
           ]
-        }],
-        generationConfig: {
-          temperature: 0.1,
-          maxOutputTokens: 1000
-        }
+        }]
       };
       
-      const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+      // 使用v1beta版本和gemini-pro-vision模型
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-vision:generateContent?key=${GEMINI_API_KEY}`;
+      
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
