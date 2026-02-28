@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Logo 墙生成器</title>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
   <style>
@@ -763,90 +764,6 @@
 </div>
 
 <script>
-  // ============ Gemini Vision API配置 ============
-  const GEMINI_API_KEY = 'AIzaSyCUUWFrBbbXc7ty6BaGgS1VcugLSbLxS5U';
-  
-  // Gemini Vision OCR识别函数
-  async function geminiOCR(base64Image) {
-    try {
-      // 去掉base64前缀，获取纯base64数据和mime类型
-      const matches = base64Image.match(/^data:image\/(\w+);base64,(.+)$/);
-      if (!matches) {
-        console.error('[Gemini OCR] 无效的base64图片格式');
-        return '';
-      }
-      
-      const mimeType = `image/${matches[1]}`;
-      const imageData = matches[2];
-      
-      // 尝试多个模型（从新到旧）
-      const models = [
-        'gemini-1.5-flash-latest',
-        'gemini-1.5-flash',
-        'gemini-1.5-pro-latest',
-        'gemini-1.5-pro'
-      ];
-      
-      // 构造请求体（符合官方文档格式）
-      const requestBody = {
-        contents: [{
-          parts: [
-            {
-              inline_data: {
-                mime_type: mimeType,
-                data: imageData
-              }
-            },
-            {
-              text: "请识别这张图片中的所有中文和英文文字，按原始顺序逐行返回，不要添加任何解释或格式化。"
-            }
-          ]
-        }]
-      };
-      
-      // 尝试每个模型直到成功
-      for (const model of models) {
-        try {
-          const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
-          
-          const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(requestBody)
-          });
-          
-          if (!response.ok) {
-            console.warn(`[Gemini OCR] 模型 ${model} 不可用:`, response.status);
-            continue; // 尝试下一个模型
-          }
-          
-          const data = await response.json();
-          
-          // 解析Gemini响应
-          if (data.candidates && data.candidates.length > 0) {
-            const candidate = data.candidates[0];
-            if (candidate.content && candidate.content.parts && candidate.content.parts.length > 0) {
-              const text = candidate.content.parts[0].text || '';
-              console.log(`[Gemini OCR识别成功] 使用模型: ${model}`, text);
-              return text.trim();
-            }
-          }
-        } catch (err) {
-          console.warn(`[Gemini OCR] 模型 ${model} 失败:`, err);
-          continue; // 尝试下一个模型
-        }
-      }
-      
-      console.error('[Gemini OCR] 所有模型均失败');
-      return '';
-    } catch (err) {
-      console.error('[Gemini OCR异常]', err);
-      return '';
-    }
-  }
-
   // ============ 数据 ============
   let logoEntries = [];
 
@@ -2225,10 +2142,18 @@
         return c.toDataURL('image/png');
       }
 
-      // 使用Gemini OCR识别名称（高精度视觉识别）
+      // 使用Tesseract.js OCR识别名称（优化参数）
       const nameSrc = prepareNameCanvas(nameX, nameY, nameW, nameH, 4, 160);
 
-      const nameOcrPromise = geminiOCR(nameSrc).then(text => {
+      const nameOcrPromise = Tesseract.recognize(
+        nameSrc, 
+        'chi_sim+eng', 
+        { 
+          logger: () => {},
+          tessedit_pageseg_mode: '7', // 单行文本模式
+          preserve_interword_spaces: '0'
+        }
+      ).then(({ data: { text } }) => {
         console.log('[名称OCR原始文本]', text);
 
         if (!text) return { type: 'name', value: '' };
@@ -2292,10 +2217,18 @@
         return c.toDataURL('image/png');
       }
 
-      // 使用Gemini OCR识别分类（标准参数）
+      // 使用Tesseract.js OCR识别分类（优化参数）
       const catSrc = prepareOcrCanvas(catX, catY, catW, catH, 5, 155, true);
 
-      const catOcrPromise = geminiOCR(catSrc).then(text => {
+      const catOcrPromise = Tesseract.recognize(
+        catSrc,
+        'chi_sim+eng',
+        {
+          logger: () => {},
+          tessedit_pageseg_mode: '6', // 块文本模式
+          preserve_interword_spaces: '0'
+        }
+      ).then(({ data: { text } }) => {
         console.log('[分类OCR原始文本]', text);
         
         if (!text) return { type: 'category', value: null };
