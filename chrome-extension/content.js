@@ -373,43 +373,74 @@
           return null;
         }
 
-        // === 策略A：表格行扫描（适配数据表格页面） ===
-        const tableRows = document.querySelectorAll('tr, [role="row"], .ant-table-row, .el-table__row');
+        // 检测文本是否是纯分类格式（单元格主要内容就是分类）
+        function isCategoryCell(text) {
+          if (!text) return false;
+          // 去掉空白后，整个文本就是一个分类格式
+          const cleaned = text.trim();
+          return /^[\u4e00-\u9fff\w]+\s*[>＞→]\s*[\u4e00-\u9fff\w/]+$/.test(cleaned);
+        }
+
+        // === 策略A：表格行扫描 ===
+        // 支持多种表格实现：标准 table、Ant Design Table、Element UI Table、纯 div 模拟表格
+        const tableRows = document.querySelectorAll(
+          'tr, [role="row"], .ant-table-row, .el-table__row, ' +
+          '[class*="table-row"], [class*="tableRow"], [class*="TableRow"]'
+        );
+
         if (tableRows.length > 1) {
-          // 第一步：通过表头确定「热门分类」所在的列索引
+          // 尝试多种方式查找表头
           let categoryColIndex = -1;
-          const headerRow = document.querySelector('thead tr, [role="row"]:first-child, .ant-table-thead tr');
-          if (headerRow) {
-            const headerCells = headerRow.querySelectorAll('th, [role="columnheader"], .ant-table-cell');
+          const headerSelectors = [
+            'thead tr',
+            '.ant-table-thead tr',
+            '[role="row"]:first-child',
+            '[class*="table-header"] [role="row"]',
+            '[class*="tableHeader"] [role="row"]',
+            '[class*="thead"] [role="row"]',
+          ];
+
+          for (const sel of headerSelectors) {
+            const headerRow = document.querySelector(sel);
+            if (!headerRow) continue;
+            const headerCells = headerRow.querySelectorAll(
+              'th, [role="columnheader"], .ant-table-cell, [class*="table-cell"], [class*="tableCell"]'
+            );
             headerCells.forEach((cell, idx) => {
               const text = cell.textContent.trim();
-              // 匹配"热门分类"、"分类"等列头
-              if (text.includes('热门分类') || text === '分类' || text === '类别') {
+              if (text.includes('热门分类') || text === '分类' || text === '类别' || text === '类型') {
                 categoryColIndex = idx;
               }
             });
+            if (categoryColIndex >= 0) break;
           }
+
+          console.log('[Logo采集器] 表格行数:', tableRows.length, '热门分类列索引:', categoryColIndex);
 
           tableRows.forEach(row => {
             // 跳过表头行
-            if (row.closest('thead') || row.querySelector('th')) return;
+            if (row.closest('thead') || row.querySelector('th') || row.querySelector('[role="columnheader"]')) return;
 
             const img = row.querySelector('img');
             if (!img) return;
             const rect = img.getBoundingClientRect();
             if (rect.width < 16 || rect.height < 16 || rect.width > 200) return;
 
-            const cells = row.querySelectorAll('td, [role="cell"], .ant-table-cell, .el-table__cell');
+            // 获取该行所有单元格（兼容多种实现）
+            const cells = row.querySelectorAll(
+              'td, [role="cell"], .ant-table-cell, [class*="table-cell"], [class*="tableCell"]'
+            );
+
             let name = '';
             let pageCategory = '';
             let pageSubcategory = '';
+            let imgCellIndex = -1;
 
-            // 提取名称：从包含图片的单元格中取
+            // 第一遍：找到图片所在的单元格并提取名称
             cells.forEach((cell, idx) => {
               if (!cell.contains(img) || name) return;
+              imgCellIndex = idx;
 
-              // 找图片旁边最像 App 名称的文本
-              // 优先找直接子级或浅层嵌套的短中文文本
               const candidates = cell.querySelectorAll('span, a, div, p, h1, h2, h3, h4, h5, h6, strong, b, em');
               for (const el of candidates) {
                 const t = el.textContent.trim();
@@ -417,9 +448,8 @@
                 if (/^\d+$/.test(t)) continue;
                 // 跳过英文公司名
                 if (/^[A-Za-z\s,.()\-]+$/.test(t) && (
-                  /Technology|Ltd|Inc|Co\.|Network|Beijing|Shanghai|Shenzhen|Comp|Limited/i.test(t)
+                  /Technology|Ltd|Inc|Co\.|Network|Beijing|Shanghai|Shenzhen|Comp|Limited|Games|Mobile/i.test(t)
                 )) continue;
-                // 跳过纯英文长串（公司名）
                 if (/^[A-Za-z\s,.()\-]{20,}$/.test(t)) continue;
                 name = t;
                 break;
@@ -429,8 +459,9 @@
               }
             });
 
-            // 提取分类：只从「热门分类」列获取
+            // 第二遍：提取分类
             if (categoryColIndex >= 0 && cells[categoryColIndex]) {
+              // 方法1：通过表头列索引精确获取
               const catText = cells[categoryColIndex].textContent.trim();
               const cat = extractCategory(catText);
               if (cat) {
@@ -439,7 +470,21 @@
               }
             }
 
-            // 兜底名称
+            // 方法2：如果表头没找到列索引，遍历非图片单元格找「纯分类格式」的单元格
+            if (!pageCategory) {
+              cells.forEach((cell, idx) => {
+                if (idx === imgCellIndex || pageCategory) return;
+                const text = cell.textContent.trim();
+                if (isCategoryCell(text)) {
+                  const cat = extractCategory(text);
+                  if (cat) {
+                    pageCategory = cat.major;
+                    pageSubcategory = cat.minor;
+                  }
+                }
+              });
+            }
+
             if (!name) {
               name = findNearbyName(img);
             }
@@ -454,7 +499,10 @@
             }
           });
 
-          if (results.length > 0) return results;
+          if (results.length > 0) {
+            console.log('[Logo采集器] 表格扫描结果:', results.length, '个，有分类:', results.filter(r => r.pageCategory).length, '个');
+            return results;
+          }
         }
 
         // === 策略B：列表/卡片扫描（适配普通网页） ===
