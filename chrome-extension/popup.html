@@ -28,6 +28,60 @@
     .header h1 { font-size: 16px; font-weight: 700; margin-bottom: 2px; }
     .header p { font-size: 11px; opacity: 0.8; }
 
+    /* 采集前设置 */
+    .batch-settings {
+      padding: 10px 14px;
+      background: #fff;
+      border-bottom: 1px solid #eee;
+    }
+    .batch-settings-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: #555;
+      margin-bottom: 8px;
+    }
+    .batch-settings-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .batch-settings-row:last-child { margin-bottom: 0; }
+    .batch-settings-row label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #888;
+      white-space: nowrap;
+      line-height: 24px;
+      min-width: 36px;
+    }
+    .setting-options {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+    .opt-btn {
+      padding: 3px 10px;
+      border: 1.5px solid #ddd;
+      border-radius: 12px;
+      background: #fff;
+      font-size: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      color: #888;
+      line-height: 16px;
+    }
+    .opt-btn:hover { border-color: #667eea; color: #667eea; }
+    .opt-btn.active {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: #fff;
+      border-color: transparent;
+    }
+    .opt-btn.region.active {
+      background: linear-gradient(135deg, #52c41a, #389e0d);
+    }
+
     /* 操作按钮区 */
     .actions {
       padding: 12px 16px;
@@ -174,6 +228,10 @@
       background: #f0f1ff;
       color: #667eea;
     }
+    .logo-tag.product {
+      background: #f0f1ff;
+      color: #764ba2;
+    }
     .logo-tag.region {
       background: #fff7e6;
       color: #fa8c16;
@@ -303,6 +361,36 @@
     <p>从网页中智能采集 App Logo 信息</p>
   </div>
 
+  <!-- 采集前设置：产品 + 区域 -->
+  <div class="batch-settings">
+    <div class="batch-settings-title">⚙️ 采集设置</div>
+    <div class="batch-settings-row">
+      <label>产品：</label>
+      <div class="setting-options" id="productOptions">
+        <button class="opt-btn active" data-product="IM">IM</button>
+        <button class="opt-btn" data-product="RTC">RTC</button>
+        <button class="opt-btn" data-product="美颜">美颜</button>
+      </div>
+    </div>
+    <div class="batch-settings-row">
+      <label>区域：</label>
+      <div class="setting-options" id="regionOptions">
+        <button class="opt-btn region active" data-region="中国大陆">中国大陆</button>
+        <button class="opt-btn region" data-region="中国港澳台">港澳台</button>
+        <button class="opt-btn region" data-region="日本">日本</button>
+        <button class="opt-btn region" data-region="韩国">韩国</button>
+        <button class="opt-btn region" data-region="东南亚">东南亚</button>
+        <button class="opt-btn region" data-region="南亚">南亚</button>
+        <button class="opt-btn region" data-region="中东">中东</button>
+        <button class="opt-btn region" data-region="欧洲">欧洲</button>
+        <button class="opt-btn region" data-region="北美">北美</button>
+        <button class="opt-btn region" data-region="拉美">拉美</button>
+        <button class="opt-btn region" data-region="非洲">非洲</button>
+        <button class="opt-btn region" data-region="其他">其他</button>
+      </div>
+    </div>
+  </div>
+
   <div class="actions">
     <button class="btn-scan" id="btnScan">🔍 自动扫描</button>
     <button class="btn-pick" id="btnPick">🎯 手动点选</button>
@@ -336,6 +424,14 @@
       <div class="edit-field">
         <label>应用名称</label>
         <input type="text" id="editName" placeholder="输入应用名称">
+      </div>
+      <div class="edit-field">
+        <label>产品</label>
+        <select id="editProduct">
+          <option value="IM">IM</option>
+          <option value="RTC">RTC</option>
+          <option value="美颜">美颜</option>
+        </select>
       </div>
       <div class="edit-field">
         <label>大分类</label>

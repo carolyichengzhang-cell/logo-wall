@@ -7,6 +7,7 @@
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -228,41 +229,67 @@
       margin-top: 4px;
     }
 
-    /* 产品选择器 */
-    .product-selector {
+    /* 批量设置面板 */
+    .batch-settings {
+      background: linear-gradient(135deg, #f8f9ff 0%, #f0f1ff 100%);
+      border: 2px solid #e0e3ff;
+      border-radius: 14px;
+      padding: 20px 24px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 10px rgba(102,126,234,0.08);
+    }
+    .batch-settings-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #444;
+      margin-bottom: 14px;
       display: flex;
       align-items: center;
-      gap: 12px;
-      background: #fff;
-      border-radius: 12px;
-      padding: 12px 20px;
-      margin-bottom: 16px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-    }
-    .product-selector label {
-      font-weight: 600;
-      font-size: 0.95rem;
-      color: #555;
-      white-space: nowrap;
-    }
-    .product-options {
-      display: flex;
       gap: 8px;
     }
-    .product-btn {
-      padding: 6px 18px;
+    .batch-settings-title::before {
+      content: '⚙️';
+      font-size: 1.1rem;
+    }
+    .batch-settings-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .batch-settings-row:last-child { margin-bottom: 0; }
+    .batch-settings-row label {
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: #555;
+      white-space: nowrap;
+      min-width: 70px;
+    }
+    .product-options, .region-options {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .product-btn, .region-btn {
+      padding: 6px 16px;
       border: 2px solid #ddd;
       border-radius: 20px;
       background: #fff;
-      font-size: 0.88rem;
+      font-size: 0.85rem;
       font-weight: 600;
       cursor: pointer;
       transition: all 0.2s;
       color: #666;
     }
-    .product-btn:hover { border-color: #667eea; color: #667eea; }
+    .product-btn:hover, .region-btn:hover { border-color: #667eea; color: #667eea; }
     .product-btn.active {
       background: linear-gradient(135deg, #667eea, #764ba2);
+      color: #fff;
+      border-color: transparent;
+    }
+    .region-btn.active {
+      background: linear-gradient(135deg, #52c41a, #389e0d);
       color: #fff;
       border-color: transparent;
     }
@@ -627,13 +654,33 @@
 </div>
 
 <div class="container">
-  <!-- 全局产品选择 -->
-  <div class="product-selector" id="productSelector">
-    <label>当前产品：</label>
-    <div class="product-options">
-      <button class="product-btn active" data-product="IM">IM</button>
-      <button class="product-btn" data-product="RTC">RTC</button>
-      <button class="product-btn" data-product="美颜">美颜</button>
+  <!-- 批量设置：产品 + 区域 -->
+  <div class="batch-settings" id="batchSettings">
+    <div class="batch-settings-title">采集前设置（将应用到后续所有采集的 Logo）</div>
+    <div class="batch-settings-row">
+      <label>选择产品：</label>
+      <div class="product-options" id="productOptions">
+        <button class="product-btn active" data-product="IM">IM</button>
+        <button class="product-btn" data-product="RTC">RTC</button>
+        <button class="product-btn" data-product="美颜">美颜</button>
+      </div>
+    </div>
+    <div class="batch-settings-row">
+      <label>选择区域：</label>
+      <div class="region-options" id="regionOptions">
+        <button class="region-btn active" data-region="中国大陆">中国大陆</button>
+        <button class="region-btn" data-region="中国港澳台">中国港澳台</button>
+        <button class="region-btn" data-region="日本">日本</button>
+        <button class="region-btn" data-region="韩国">韩国</button>
+        <button class="region-btn" data-region="东南亚">东南亚</button>
+        <button class="region-btn" data-region="南亚">南亚</button>
+        <button class="region-btn" data-region="中东">中东</button>
+        <button class="region-btn" data-region="欧洲">欧洲</button>
+        <button class="region-btn" data-region="北美">北美</button>
+        <button class="region-btn" data-region="拉美">拉美</button>
+        <button class="region-btn" data-region="非洲">非洲</button>
+        <button class="region-btn" data-region="其他">其他</button>
+      </div>
     </div>
   </div>
 
@@ -720,6 +767,7 @@
   <div class="generate-bar" id="generateBar">
     <button class="btn btn-primary" id="generateBtn">生成 Logo 墙</button>
     <button class="btn btn-primary" id="exportExcelBarBtn" style="background:linear-gradient(135deg,#36d1dc,#5b86e5);">导出 Excel</button>
+    <button class="btn btn-primary" id="exportPptBarBtn" style="background:linear-gradient(135deg,#f5af19,#f12711);">导出 PPT</button>
     <button class="btn btn-secondary" id="saveToLibBtn" style="background:#667eea22;color:#667eea;border:1px solid #667eea;">存入 Logo 库</button>
     <button class="btn btn-danger" id="clearAllBtn">清空全部</button>
   </div>
@@ -755,6 +803,7 @@
       <div class="wall-toolbar-actions">
         <button class="btn btn-primary" id="exportBtn">导出图片</button>
         <button class="btn btn-primary" id="exportExcelBtn" style="background:linear-gradient(135deg,#36d1dc,#5b86e5);">导出 Excel</button>
+        <button class="btn btn-primary" id="exportPptBtn" style="background:linear-gradient(135deg,#f5af19,#f12711);">导出 PPT</button>
         <button class="btn btn-secondary" id="backEditBtn">返回编辑</button>
       </div>
     </div>
@@ -1330,12 +1379,21 @@
     return { major: '', minor: '' };
   }
 
-  // ============ 产品选择器 ============
-  document.querySelectorAll('.product-btn').forEach(btn => {
+  // ============ 产品 + 区域 批量选择 ============
+  document.querySelectorAll('#productOptions .product-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.product-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('#productOptions .product-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       currentProduct = btn.dataset.product;
+    });
+  });
+
+  let currentRegion = '中国大陆'; // 全局当前选中的区域
+  document.querySelectorAll('#regionOptions .region-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#regionOptions .region-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentRegion = btn.dataset.region;
     });
   });
 
@@ -1884,7 +1942,7 @@
     const trimmed = trimWhiteBorder(canvas);
     const src = trimmed.toDataURL('image/png');
     const index = cropItems.length;
-    cropItems.push({ src, name: '识别中...', category: '识别中...', subcategory: '', product: currentProduct, region: '', ocrDone: false });
+    cropItems.push({ src, name: '识别中...', category: '识别中...', subcategory: '', product: currentProduct, region: currentRegion, ocrDone: false });
     renderCropList();
     updateGenerateBar();
 
@@ -2354,11 +2412,9 @@
 
         cropItems[index].name = name || '未命名Logo';
 
-        // 根据App名称自动猜测地区
+        // 根据App名称自动猜测地区（如果猜到了就用猜测值，否则用批量设置的区域）
         const guessedRegion = guessRegionByName(name);
-        if (guessedRegion) {
-          cropItems[index].region = guessedRegion;
-        }
+        cropItems[index].region = guessedRegion || currentRegion;
 
         // 分类策略：仅使用OCR识别结果，不用映射表猜测（避免"幻觉"）
         // OCR没识别到分类时留空，让用户手动选择，绝不给出可能错误的分类
@@ -2496,7 +2552,7 @@
       const reader = new FileReader();
       reader.onload = (e) => {
         const name = file.name.replace(/\.[^/.]+$/, '');
-        directItems.push({ src: e.target.result, name, product: currentProduct, region: guessRegionByName(name) });
+        directItems.push({ src: e.target.result, name, product: currentProduct, region: guessRegionByName(name) || currentRegion });
         renderDirectGrid();
         updateGenerateBar();
       };
@@ -2852,6 +2908,216 @@
   document.getElementById('exportExcelBarBtn').addEventListener('click', () => {
     const items = [...cropItems, ...directItems];
     doExportExcel(items, document.getElementById('exportExcelBarBtn'));
+  });
+
+  // ============ 导出 PPT（Logo墙展示） ============
+  async function doExportPpt(items, btnEl) {
+    if (!items || items.length === 0) {
+      alert('没有可导出的数据');
+      return;
+    }
+
+    const origText = btnEl.textContent;
+    btnEl.textContent = '导出中...';
+    btnEl.disabled = true;
+
+    try {
+      const pptx = new PptxGenJS();
+      pptx.layout = 'LAYOUT_WIDE'; // 16:9 宽屏
+      pptx.author = 'Logo墙生成器';
+      pptx.title = 'Logo 墙';
+
+      // 按分类分组
+      const grouped = {};
+      items.forEach(item => {
+        const key = item.category || '未分类';
+        if (!grouped[key]) grouped[key] = [];
+        grouped[key].push(item);
+      });
+
+      // 封面页
+      const coverSlide = pptx.addSlide();
+      coverSlide.background = { fill: '667EEA' };
+      coverSlide.addText('Logo 墙', {
+        x: 0.5, y: 1.5, w: '90%', h: 1.2,
+        fontSize: 44, fontFace: 'Microsoft YaHei',
+        color: 'FFFFFF', bold: true, align: 'center'
+      });
+      const productLabel = currentProduct || 'IM';
+      const regionLabel = currentRegion || '';
+      const subtitle = `产品：${productLabel}` + (regionLabel ? `　|　区域：${regionLabel}` : '') + `　|　共 ${items.length} 个 Logo`;
+      coverSlide.addText(subtitle, {
+        x: 0.5, y: 2.8, w: '90%', h: 0.6,
+        fontSize: 18, fontFace: 'Microsoft YaHei',
+        color: 'DDDDFF', align: 'center'
+      });
+      const dateStr = new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
+      coverSlide.addText(dateStr, {
+        x: 0.5, y: 3.5, w: '90%', h: 0.4,
+        fontSize: 14, fontFace: 'Microsoft YaHei',
+        color: 'BBBBEE', align: 'center'
+      });
+
+      // 总览页：所有Logo墙
+      const COLS = 8;
+      const LOGO_SIZE = 0.75; // 英寸
+      const GAP_X = 0.4;
+      const GAP_Y = 0.45;
+      const START_X = 0.5;
+      const START_Y = 1.0;
+      const ROWS_PER_SLIDE = 5;
+
+      // 全部Logo概览页（可能多页）
+      for (let page = 0; page * COLS * ROWS_PER_SLIDE < items.length; page++) {
+        const slide = pptx.addSlide();
+        slide.background = { fill: 'FFFFFF' };
+        slide.addText('Logo 总览', {
+          x: 0.3, y: 0.15, w: '95%', h: 0.6,
+          fontSize: 24, fontFace: 'Microsoft YaHei',
+          color: '333333', bold: true
+        });
+        if (items.length > COLS * ROWS_PER_SLIDE) {
+          slide.addText(`第 ${page + 1} 页`, {
+            x: 10, y: 0.2, w: 2.5, h: 0.4,
+            fontSize: 12, fontFace: 'Microsoft YaHei',
+            color: '999999', align: 'right'
+          });
+        }
+
+        const startIdx = page * COLS * ROWS_PER_SLIDE;
+        const endIdx = Math.min(startIdx + COLS * ROWS_PER_SLIDE, items.length);
+
+        for (let i = startIdx; i < endIdx; i++) {
+          const idx = i - startIdx;
+          const col = idx % COLS;
+          const row = Math.floor(idx / COLS);
+          const x = START_X + col * (LOGO_SIZE + GAP_X);
+          const y = START_Y + row * (LOGO_SIZE + GAP_Y + 0.35);
+
+          const entry = items[i];
+
+          // 添加Logo图片
+          if (entry.src && entry.src.startsWith('data:image')) {
+            slide.addImage({
+              data: entry.src,
+              x: x + (LOGO_SIZE - 0.65) / 2,
+              y: y,
+              w: 0.65,
+              h: 0.65,
+              rounding: true,
+            });
+          }
+
+          // 名称
+          slide.addText(entry.name || '', {
+            x: x - 0.1, y: y + 0.68, w: LOGO_SIZE + 0.2, h: 0.28,
+            fontSize: 7, fontFace: 'Microsoft YaHei',
+            color: '555555', align: 'center', valign: 'top',
+            wrap: false
+          });
+        }
+      }
+
+      // 按分类生成详情页
+      const catKeys = Object.keys(grouped).sort((a, b) => {
+        if (a === '未分类') return 1;
+        if (b === '未分类') return -1;
+        return grouped[b].length - grouped[a].length;
+      });
+
+      for (const cat of catKeys) {
+        const catItems = grouped[cat];
+        const catSlide = pptx.addSlide();
+        catSlide.background = { fill: 'FAFBFC' };
+
+        // 分类标题
+        catSlide.addShape(pptx.shapes.RECTANGLE, {
+          x: 0, y: 0, w: '100%', h: 0.8,
+          fill: { color: '667EEA' }
+        });
+        catSlide.addText(`${cat}（${catItems.length}）`, {
+          x: 0.4, y: 0.1, w: 8, h: 0.6,
+          fontSize: 22, fontFace: 'Microsoft YaHei',
+          color: 'FFFFFF', bold: true
+        });
+
+        // Logo列表（表格形式）
+        const tableRows = [
+          [
+            { text: 'Logo', options: { bold: true, color: 'FFFFFF', fill: { color: '667EEA' }, align: 'center', fontSize: 10 } },
+            { text: '应用名称', options: { bold: true, color: 'FFFFFF', fill: { color: '667EEA' }, align: 'center', fontSize: 10 } },
+            { text: '产品', options: { bold: true, color: 'FFFFFF', fill: { color: '667EEA' }, align: 'center', fontSize: 10 } },
+            { text: '区域', options: { bold: true, color: 'FFFFFF', fill: { color: '667EEA' }, align: 'center', fontSize: 10 } },
+            { text: '大分类', options: { bold: true, color: 'FFFFFF', fill: { color: '667EEA' }, align: 'center', fontSize: 10 } },
+            { text: '小分类', options: { bold: true, color: 'FFFFFF', fill: { color: '667EEA' }, align: 'center', fontSize: 10 } }
+          ]
+        ];
+
+        const maxPerPage = 10;
+        const pageItems = catItems.slice(0, maxPerPage);
+
+        pageItems.forEach(entry => {
+          tableRows.push([
+            { text: '', options: { align: 'center', fontSize: 9 } },
+            { text: entry.name || '', options: { align: 'center', fontSize: 9 } },
+            { text: entry.product || '', options: { align: 'center', fontSize: 9, color: '667EEA' } },
+            { text: entry.region || '', options: { align: 'center', fontSize: 9, color: '389E0D' } },
+            { text: entry.category || '', options: { align: 'center', fontSize: 9 } },
+            { text: entry.subcategory || '', options: { align: 'center', fontSize: 9 } }
+          ]);
+        });
+
+        catSlide.addTable(tableRows, {
+          x: 0.3, y: 1.0, w: 12.5,
+          colW: [1.2, 2.5, 1.5, 1.8, 2.5, 2.5],
+          rowH: 0.45,
+          border: { type: 'solid', pt: 0.5, color: 'DDDDDD' },
+          autoPage: false
+        });
+
+        // 在表格上叠加Logo图片
+        pageItems.forEach((entry, i) => {
+          if (entry.src && entry.src.startsWith('data:image')) {
+            catSlide.addImage({
+              data: entry.src,
+              x: 0.5,
+              y: 1.0 + 0.45 + i * 0.45 + 0.03,
+              w: 0.35,
+              h: 0.35,
+              rounding: true
+            });
+          }
+        });
+
+        // 多余Logo提示
+        if (catItems.length > maxPerPage) {
+          catSlide.addText(`...及其他 ${catItems.length - maxPerPage} 个`, {
+            x: 0.3, y: 6.8, w: 5, h: 0.3,
+            fontSize: 10, fontFace: 'Microsoft YaHei',
+            color: '999999', italic: true
+          });
+        }
+      }
+
+      // 导出
+      const pptData = await pptx.write({ outputType: 'blob' });
+      saveAs(pptData, 'logo-wall.pptx');
+    } catch (err) {
+      console.error('PPT导出失败:', err);
+      alert('PPT导出失败，请重试');
+    }
+
+    btnEl.textContent = origText;
+    btnEl.disabled = false;
+  }
+
+  // PPT导出按钮绑定
+  document.getElementById('exportPptBtn').addEventListener('click', () => {
+    doExportPpt(logoEntries, document.getElementById('exportPptBtn'));
+  });
+  document.getElementById('exportPptBarBtn').addEventListener('click', () => {
+    const items = [...cropItems, ...directItems];
+    doExportPpt(items, document.getElementById('exportPptBarBtn'));
   });
 
   // ============ 拖拽通用 ============

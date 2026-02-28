@@ -37,11 +37,53 @@ const editName = document.getElementById('editName');
 const editCategory = document.getElementById('editCategory');
 const editSubcategory = document.getElementById('editSubcategory');
 const editRegion = document.getElementById('editRegion');
+const editProduct = document.getElementById('editProduct');
 const editSave = document.getElementById('editSave');
 const editCancel = document.getElementById('editCancel');
 
 let allLogos = [];
 let editingId = null;
+
+// ============ 产品 + 区域 批量选择 ============
+let currentProduct = 'IM';
+let currentRegion = '中国大陆';
+
+// 产品选择
+document.querySelectorAll('#productOptions .opt-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#productOptions .opt-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentProduct = btn.dataset.product;
+    // 保存到 storage 供 content.js 使用
+    chrome.storage.local.set({ logo_collector_product: currentProduct, logo_collector_region: currentRegion });
+  });
+});
+
+// 区域选择
+document.querySelectorAll('#regionOptions .opt-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#regionOptions .opt-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentRegion = btn.dataset.region;
+    chrome.storage.local.set({ logo_collector_product: currentProduct, logo_collector_region: currentRegion });
+  });
+});
+
+// 从 storage 恢复上次的选择
+chrome.storage.local.get(['logo_collector_product', 'logo_collector_region'], (result) => {
+  if (result.logo_collector_product) {
+    currentProduct = result.logo_collector_product;
+    document.querySelectorAll('#productOptions .opt-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.product === currentProduct);
+    });
+  }
+  if (result.logo_collector_region) {
+    currentRegion = result.logo_collector_region;
+    document.querySelectorAll('#regionOptions .opt-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.region === currentRegion);
+    });
+  }
+});
 
 // 初始化分类下拉
 function initCategorySelects() {
@@ -99,6 +141,7 @@ function renderList() {
       <div class="logo-info">
         <div class="logo-name">${logo.name}</div>
         <div class="logo-meta">
+          ${logo.product ? `<span class="logo-tag product">${logo.product}</span>` : ''}
           ${logo.category ? `<span class="logo-tag">${logo.category}${logo.subcategory ? ' > ' + logo.subcategory : ''}</span>` : ''}
           ${logo.region ? `<span class="logo-tag region">${logo.region}</span>` : ''}
           ${logo.source ? `<span class="logo-tag source">${logo.source}</span>` : ''}
@@ -134,6 +177,7 @@ function renderList() {
 function openEditDialog(logo) {
   editingId = logo.id;
   editName.value = logo.name || '';
+  editProduct.value = logo.product || currentProduct || 'IM';
   editCategory.value = logo.category || '';
 
   // 触发小分类更新
@@ -158,6 +202,7 @@ editSave.addEventListener('click', () => {
       id: editingId,
       updates: {
         name: editName.value.trim() || '未命名',
+        product: editProduct.value,
         category: editCategory.value,
         subcategory: editSubcategory.value,
         region: editRegion.value
@@ -209,6 +254,9 @@ btnScan.addEventListener('click', async () => {
   btnScan.textContent = '⏳ 扫描中...';
   btnScan.disabled = true;
 
+  // 先同步产品/区域设置到 storage
+  await chrome.storage.local.set({ logo_collector_product: currentProduct, logo_collector_region: currentRegion });
+  await sendToContentScript({ action: 'setSettings', data: { product: currentProduct, region: currentRegion } });
   await sendToContentScript({ action: 'startScan' });
 
   // 延迟刷新列表
@@ -222,6 +270,8 @@ btnScan.addEventListener('click', async () => {
 
 // 手动点选
 btnPick.addEventListener('click', async () => {
+  await chrome.storage.local.set({ logo_collector_product: currentProduct, logo_collector_region: currentRegion });
+  await sendToContentScript({ action: 'setSettings', data: { product: currentProduct, region: currentRegion } });
   await sendToContentScript({ action: 'startPick' });
   // 关闭 popup，让用户在页面上操作
   window.close();
@@ -240,7 +290,7 @@ btnExport.addEventListener('click', () => {
     name: logo.name,
     category: logo.category || '',
     subcategory: logo.subcategory || '',
-    product: logo.product || '',
+    product: logo.product || currentProduct || '',
     region: logo.region || ''
   }));
 
@@ -268,7 +318,7 @@ btnImport.addEventListener('click', async () => {
     name: logo.name,
     category: logo.category || '',
     subcategory: logo.subcategory || '',
-    product: logo.product || '',
+    product: logo.product || currentProduct || '',
     region: logo.region || '',
     addedAt: Date.now()
   }));

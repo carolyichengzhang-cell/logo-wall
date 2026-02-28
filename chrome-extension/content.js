@@ -198,6 +198,14 @@
   let toolbar = null;
   let panel = null;
   let toast = null;
+  let currentProduct = 'IM';       // 当前选中的产品
+  let currentRegion = '中国大陆';   // 当前选中的区域
+
+  // 从 storage 恢复产品/区域设置
+  chrome.storage.local.get(['logo_collector_product', 'logo_collector_region'], (result) => {
+    if (result.logo_collector_product) currentProduct = result.logo_collector_product;
+    if (result.logo_collector_region) currentRegion = result.logo_collector_region;
+  });
 
   // ========== 工具函数 ==========
 
@@ -742,7 +750,8 @@
           src: base64,
           category: finalCategory,
           subcategory: finalSubcategory,
-          region: region,
+          product: currentProduct,
+          region: region || currentRegion,
           domain: location.hostname,
           source: item.source || location.hostname,
           pageUrl: location.href,
@@ -866,7 +875,8 @@
           src: base64,
           category: finalCategory,
           subcategory: finalSubcategory,
-          region: region,
+          product: currentProduct,
+          region: region || currentRegion,
           domain: location.hostname,
           source: item.source || location.hostname,
           pageUrl: location.href,
@@ -1030,7 +1040,8 @@
           src: base64,
           category: finalCategory,
           subcategory: finalSubcategory,
-          region: region,
+          product: currentProduct,
+          region: region || currentRegion,
           domain: location.hostname,
           source: item.source || location.hostname,
           pageUrl: location.href,
@@ -1134,7 +1145,8 @@
         src: base64,
         category: cat.major,
         subcategory: cat.minor,
-        region,
+        product: currentProduct,
+        region: region || currentRegion,
         domain: location.hostname,
         source: location.hostname,
         pageUrl: location.href,
@@ -1288,6 +1300,14 @@
   // ========== 消息监听（来自 Popup） ==========
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     switch (message.action) {
+      case 'setSettings':
+        if (message.data) {
+          if (message.data.product) currentProduct = message.data.product;
+          if (message.data.region) currentRegion = message.data.region;
+        }
+        sendResponse({ success: true });
+        break;
+
       case 'startScan':
         createToolbar();
         autoScan();
