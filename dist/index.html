@@ -866,7 +866,7 @@
       results.push({ text: cloud.text, confidence: cloud.confidence || 0, strategy: 'ocr.space' });
     }
     
-    // 策略1：标准识别（中英混合，限制字符集，禁止数字/竖线）
+    // 策略1：标准识别（中英混合，禁用数字/竖线）
     try {
       const { data: { text, confidence } } = await Tesseract.recognize(
         base64Image,
@@ -874,7 +874,6 @@
         {
           logger: () => {},
           tessedit_pageseg_mode: mode,
-          tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz ',
           tessedit_char_blacklist: '0123456789|!Il',
         }
       );
@@ -884,7 +883,7 @@
       console.warn('[OCR策略1失败]', err);
     }
     
-    // 策略2：仅中文模式（限制字符集）
+    // 策略2：仅中文模式（禁用数字/竖线）
     try {
       const { data: { text, confidence } } = await Tesseract.recognize(
         base64Image,
@@ -892,7 +891,6 @@
         {
           logger: () => {},
           tessedit_pageseg_mode: mode,
-          tessedit_char_whitelist: ' ',
           tessedit_char_blacklist: '0123456789|!Il',
         }
       );
