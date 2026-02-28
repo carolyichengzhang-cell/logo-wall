@@ -701,8 +701,10 @@
         <h3 style="margin-bottom:0;">我的 Logo 库（<span id="libraryCount">0</span> 个）</h3>
         <div style="display:flex;gap:8px;align-items:center;">
           <button class="btn btn-primary" id="libraryGenerateBtn" style="padding:8px 18px;font-size:0.88rem;">用选中项生成 Logo 墙</button>
+          <button class="btn btn-secondary" id="libraryImportJsonBtn" style="padding:8px 14px;font-size:0.85rem;margin-left:0;background:#52c41a22;color:#52c41a;border:1px solid #52c41a;">📥 导入 JSON</button>
           <button class="btn btn-secondary" id="librarySelectAllBtn" style="padding:8px 14px;font-size:0.85rem;margin-left:0;">全选</button>
           <button class="btn btn-danger" id="libraryDeleteSelectedBtn" style="padding:8px 14px;font-size:0.85rem;margin-left:0;">删除选中</button>
+          <input type="file" id="jsonImportInput" accept=".json" style="display:none;">
         </div>
       </div>
       <div class="library-filter" id="libraryFilter">
@@ -2992,6 +2994,47 @@
     renderWall();
     wallSection.classList.add('visible');
     wallSection.scrollIntoView({ behavior: 'smooth' });
+  });
+
+  // ============ JSON 导入功能（配合 Chrome 插件使用） ============
+  const jsonImportInput = document.getElementById('jsonImportInput');
+  document.getElementById('libraryImportJsonBtn').addEventListener('click', () => {
+    jsonImportInput.click();
+  });
+
+  jsonImportInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        let data = JSON.parse(ev.target.result);
+        if (!Array.isArray(data)) {
+          alert('JSON 格式错误：应为数组');
+          return;
+        }
+        // 兼容插件导出格式和标准格式
+        const items = data.map(item => ({
+          src: item.src || '',
+          name: item.name || '未命名',
+          category: item.category || '',
+          subcategory: item.subcategory || '',
+          product: item.product || '',
+          region: item.region || ''
+        })).filter(item => item.src); // 过滤无图片的
+
+        if (items.length === 0) {
+          alert('未找到有效的 Logo 数据');
+          return;
+        }
+        addToLibrary(items);
+        alert(`✅ 成功导入 ${items.length} 个 Logo 到库中！`);
+      } catch (err) {
+        alert('JSON 解析失败: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+    jsonImportInput.value = ''; // 重置
   });
 
   // 页面加载时初始化库
