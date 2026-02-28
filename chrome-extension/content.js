@@ -126,13 +126,55 @@
     'KFC': { major: '美食餐饮', minor: '餐厅推荐' },
     '麦当劳': { major: '美食餐饮', minor: '餐厅推荐' },
     "McDonald's": { major: '美食餐饮', minor: '餐厅推荐' },
+    '腾讯即时通信': { major: '社交聊天', minor: '即时通讯' },
+    '无畏契约': { major: '游戏', minor: '射击' },
+    'VALORANT': { major: '游戏', minor: '射击' },
+    '美柚': { major: '健身健康', minor: '女性健康' },
+    '腾讯云': { major: '工具效率', minor: '系统工具' },
+    '斗鱼': { major: '娱乐', minor: '直播' },
+    '虎牙': { major: '娱乐', minor: '直播' },
+    '货拉拉': { major: '出行导航', minor: '货运' },
+    '朴朴超市': { major: '生活服务', minor: '外卖配送' },
+    '朴朴': { major: '生活服务', minor: '外卖配送' },
+    '鱼泡直聘': { major: '商务办公', minor: '求职招聘' },
+    '233乐园': { major: '游戏', minor: '休闲益智' },
+    '智联招聘': { major: '商务办公', minor: '求职招聘' },
+    '智学网': { major: '教育学习', minor: 'K12教育' },
+    '前程无忧': { major: '商务办公', minor: '求职招聘' },
+    '英雄联盟': { major: '游戏', minor: 'MOBA' },
+    '画世界': { major: '照片视频', minor: '照片编辑' },
+    '小拉出行': { major: '出行导航', minor: '打车出行' },
+    '比亚迪': { major: '汽车服务', minor: '买车卖车' },
+    'BYD': { major: '汽车服务', minor: '买车卖车' },
   };
+
+  // 清理 App 名称中的副标题/描述
+  function cleanAppName(rawName) {
+    if (!rawName) return '';
+    let name = rawName.trim();
+    // 去掉常见分隔符后面的副标题：- : ： — | · 
+    name = name.split(/\s*[-:：—|·]\s*/)[0].trim();
+    // 去掉括号内容
+    name = name.replace(/[（(][^)）]*[)）]/g, '').trim();
+    // 去掉末尾版本号等
+    name = name.replace(/\s*(v?\d+\.\d+.*|最新版|官方版|免费版|专业版|极速版)$/i, '').trim();
+    return name;
+  }
 
   function matchCategory(name) {
     if (!name) return { major: '', minor: '' };
+    // 1. 原始名称精确匹配
     if (APP_NAME_CATEGORY_MAP[name]) return { ...APP_NAME_CATEGORY_MAP[name] };
+    // 2. 清理后的名称精确匹配
+    const cleaned = cleanAppName(name);
+    if (cleaned && APP_NAME_CATEGORY_MAP[cleaned]) return { ...APP_NAME_CATEGORY_MAP[cleaned] };
+    // 3. 映射表 key 包含在名称中（处理 "无畏契约：源能行动" 包含 "无畏契约"）
     for (const [key, cat] of Object.entries(APP_NAME_CATEGORY_MAP)) {
-      if (name.includes(key) || key.includes(name)) return { ...cat };
+      if (name.includes(key) || cleaned.includes(key)) return { ...cat };
+    }
+    // 4. 名称包含在映射表 key 中
+    for (const [key, cat] of Object.entries(APP_NAME_CATEGORY_MAP)) {
+      if (key.includes(cleaned) && cleaned.length >= 2) return { ...cat };
     }
     return { major: '', minor: '' };
   }
