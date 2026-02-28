@@ -635,7 +635,6 @@
       <button class="product-btn" data-product="RTC">RTC</button>
       <button class="product-btn" data-product="美颜">美颜</button>
     </div>
-    <button class="btn btn-secondary" id="apiKeyBtn" style="margin-left:auto;padding:6px 14px;font-size:0.82rem;background:#667eea22;color:#667eea;border:1px solid #667eea;">设置 API Key</button>
   </div>
 
   <!-- 模式切换 -->
@@ -766,28 +765,8 @@
 
 <script>
   // ============ API配置 ============
-  let API_KEY = localStorage.getItem('openai_api_key') || '';
-  
-  // 检查API Key
-  function checkApiKey() {
-    if (!API_KEY) {
-      const key = prompt('请输入OpenAI API Key（用于高精度OCR识别）：\n\n提示：API Key将保存在浏览器本地，仅用于调用OpenAI视觉模型识别App名称和分类标签。\n\n如需更换，可在浏览器控制台输入：localStorage.removeItem("openai_api_key")');
-      if (key && key.trim()) {
-        API_KEY = key.trim();
-        localStorage.setItem('openai_api_key', API_KEY);
-        return true;
-      } else {
-        alert('未设置API Key，将无法使用OCR识别功能。\n页面将继续加载，但识别功能将不可用。');
-        return false;
-      }
-    }
-    return true;
-  }
-
-  // 页面加载时检查API Key
-  window.addEventListener('DOMContentLoaded', () => {
-    checkApiKey();
-  });
+  // 请在这里填入您的OpenAI API Key
+  const API_KEY = 'YOUR_OPENAI_API_KEY_HERE';
 
   // ============ 数据 ============
   let logoEntries = [];
@@ -1278,17 +1257,6 @@
       btn.classList.add('active');
       currentProduct = btn.dataset.product;
     });
-  });
-
-  // ============ API Key设置 ============
-  document.getElementById('apiKeyBtn').addEventListener('click', () => {
-    const currentKey = API_KEY ? `${API_KEY.substring(0, 10)}...${API_KEY.substring(API_KEY.length - 4)}` : '未设置';
-    const newKey = prompt(`当前API Key: ${currentKey}\n\n请输入新的OpenAI API Key（留空则不修改）：`);
-    if (newKey && newKey.trim()) {
-      API_KEY = newKey.trim();
-      localStorage.setItem('openai_api_key', API_KEY);
-      alert('API Key 已更新！');
-    }
   });
 
   // ============ Tab 切换 ============
