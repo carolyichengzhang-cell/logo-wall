@@ -527,66 +527,47 @@
               }
             });
 
-            // 第二遍：提取分类
+            // 第二遍：提取分类（只从「热门分类」列）
             if (categoryColIndex >= 0 && cells[categoryColIndex]) {
-              // 方法1：通过表头列索引精确获取
               const catCell = cells[categoryColIndex];
-              const catText = catCell.textContent.trim();
               
-              // 调试：打印分类单元格的原始内容和字符编码
+              // 核心方案：遍历叶子文本节点
+              // 页面结构是 <span>大分类</span><img(箭头图标)/><span>小分类</span>
+              const leafTexts = [];
+              function collectLeafTexts(node) {
+                for (const child of node.childNodes) {
+                  if (child.nodeType === 3) { // 文本节点
+                    const t = child.textContent.trim();
+                    if (t && t.length >= 1) leafTexts.push(t);
+                  } else if (child.nodeType === 1) { // 元素节点
+                    // 跳过 img/svg（箭头图标）
+                    const tag = child.tagName.toLowerCase();
+                    if (tag === 'img' || tag === 'svg' || tag === 'i' || tag === 'icon') continue;
+                    collectLeafTexts(child);
+                  }
+                }
+              }
+              collectLeafTexts(catCell);
+              
               if (rowIdx < 3) {
-                console.log('[Logo采集器] 第' + rowIdx + '行 分类单元格原始text:', JSON.stringify(catText),
-                  '长度:', catText.length,
-                  '字符码:', Array.from(catText.substring(0, 20)).map(c => c.charCodeAt(0)),
-                  'innerHTML前100:', catCell.innerHTML.substring(0, 100));
+                console.log('[Logo采集器] 第' + rowIdx + '行 分类叶子文本:', leafTexts,
+                  'innerHTML前200:', catCell.innerHTML.substring(0, 200));
               }
               
-              const cat = extractCategory(catText);
-              if (cat) {
-                pageCategory = cat.major;
-                pageSubcategory = cat.minor;
-              } else if (catText) {
-                // 分类可能被 HTML 元素分隔（如 <span>娱乐</span><icon/><span>游戏服务</span>）
-                // 获取叶子文本节点
-                const leafTexts = [];
-                function getLeafTexts(node) {
-                  if (node.childNodes.length === 0 || (node.childNodes.length === 1 && node.childNodes[0].nodeType === 3)) {
-                    const t = node.textContent.trim();
-                    if (t && t.length >= 1 && !/^[>＞→›»\s]+$/.test(t)) {
-                      leafTexts.push(t);
-                    }
-                    return;
-                  }
-                  node.childNodes.forEach(child => {
-                    if (child.nodeType === 1) getLeafTexts(child); // Element
-                    else if (child.nodeType === 3) { // Text node
-                      const t = child.textContent.trim();
-                      if (t && t.length >= 1 && !/^[>＞→›»\s]+$/.test(t)) {
-                        leafTexts.push(t);
-                      }
-                    }
-                  });
-                }
-                getLeafTexts(catCell);
-                
-                if (rowIdx < 3) {
-                  console.log('[Logo采集器] 第' + rowIdx + '行 分类叶子文本:', leafTexts);
-                }
-                
-                // 从叶子文本中找两个不含 > 的中文文本作为大分类+小分类
-                const cleanParts = leafTexts.filter(t => 
-                  /[\u4e00-\u9fff]/.test(t) && !/[>＞→›»]/.test(t) && t.length <= 15
-                );
-                if (cleanParts.length >= 2) {
-                  pageCategory = cleanParts[0];
-                  pageSubcategory = cleanParts[1];
-                } else if (cleanParts.length === 1) {
-                  // 可能整个分类在一个文本节点里，再尝试按空格分
-                  const sp = cleanParts[0].split(/\s+/);
-                  if (sp.length >= 2) {
-                    pageCategory = sp[0];
-                    pageSubcategory = sp[sp.length - 1];
-                  }
+              // 过滤出中文分类词（排除 > 符号、纯数字等）
+              const catParts = leafTexts.filter(t => 
+                /[\u4e00-\u9fff]/.test(t) && !/[>＞→›»]/.test(t) && t.length >= 1 && t.length <= 15
+              );
+              
+              if (catParts.length >= 2) {
+                pageCategory = catParts[0];
+                pageSubcategory = catParts[1];
+              } else if (catParts.length === 1) {
+                // 可能文本连在一起（如"娱乐其他娱乐应用"），尝试按空格分
+                const sp = catParts[0].split(/\s+/);
+                if (sp.length >= 2) {
+                  pageCategory = sp[0];
+                  pageSubcategory = sp.slice(1).join('');
                 }
               }
             }
