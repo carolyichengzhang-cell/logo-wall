@@ -365,10 +365,11 @@
       scan: () => {
         const results = [];
 
-        // 从文本中提取分类（格式如 "娱乐 > 游戏服务"）
+        // 从文本中提取分类（格式如 "娱乐 > 游戏服务"，支持各种 > 符号）
         function extractCategory(text) {
           if (!text) return null;
-          const m = text.match(/([\u4e00-\u9fff\w]+)\s*[>＞→]\s*([\u4e00-\u9fff\w/]+)/);
+          // 支持 > ＞ → › » ❯ 以及它们的各种 Unicode 变体
+          const m = text.match(/([\u4e00-\u9fff\w]+)\s*[>＞→›»❯\u003e\uff1e\u2192\u203a\u00bb]\s*([\u4e00-\u9fff\w/]+)/);
           if (m) return { major: m[1].trim(), minor: m[2].trim() };
           return null;
         }
@@ -486,11 +487,43 @@
             // 第二遍：提取分类
             if (categoryColIndex >= 0 && cells[categoryColIndex]) {
               // 方法1：通过表头列索引精确获取
-              const catText = cells[categoryColIndex].textContent.trim();
+              const catCell = cells[categoryColIndex];
+              const catText = catCell.textContent.trim();
+              
+              // 调试：打印分类单元格的原始内容和字符编码
+              if (rowIdx < 3) {
+                console.log('[Logo采集器] 第' + rowIdx + '行 分类单元格原始text:', JSON.stringify(catText),
+                  '长度:', catText.length,
+                  '字符码:', Array.from(catText.substring(0, 20)).map(c => c.charCodeAt(0)),
+                  'innerHTML前100:', catCell.innerHTML.substring(0, 100));
+              }
+              
               const cat = extractCategory(catText);
               if (cat) {
                 pageCategory = cat.major;
                 pageSubcategory = cat.minor;
+              } else if (catText) {
+                // 尝试更宽松的提取：用 innerHTML 中可能有的分隔符
+                // 分类可能被子元素分隔，尝试获取子元素文本拼接
+                const parts = [];
+                catCell.querySelectorAll('span, a, div, em, b, strong, p').forEach(el => {
+                  const t = el.textContent.trim();
+                  if (t && t.length >= 1) parts.push(t);
+                });
+                if (rowIdx < 3) {
+                  console.log('[Logo采集器] 第' + rowIdx + '行 分类子元素:', parts);
+                }
+                // 尝试从子元素中组装分类：找到两个中文短文本，中间可能有分隔
+                if (parts.length >= 2) {
+                  // 找到像 "娱乐" 和 "游戏服务" 这样的一对
+                  for (let i = 0; i < parts.length - 1; i++) {
+                    if (/^[\u4e00-\u9fff\w/]{1,10}$/.test(parts[i]) && /^[\u4e00-\u9fff\w/]{1,15}$/.test(parts[i + 1])) {
+                      pageCategory = parts[i];
+                      pageSubcategory = parts[i + 1];
+                      break;
+                    }
+                  }
+                }
               }
             }
 
